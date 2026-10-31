@@ -15,10 +15,10 @@ from app.retrieval.embeddings import Embedder
 from app.text import normalize
 
 RRF_K = 60
-# Candidates taken from each ranking before merging.
-CANDIDATES_PER_RANKING = 20
 # Prefix length used as a light stemmer: "devolver" and "devolução" both become "devol".
 STEM_LENGTH = 5
+# Words shorter than this are matched whole by the strict word match.
+STRICT_STEM_MIN_LENGTH = 6
 
 SCHEMA = """
 CREATE TABLE index_meta (key TEXT PRIMARY KEY, value TEXT NOT NULL);
@@ -58,7 +58,6 @@ _STOPWORDS = frozenset(
         "esse",
         "esta",
         "este",
-        "eu",
         "ha",
         "isso",
         "me",
@@ -121,8 +120,6 @@ class SearchHit:
     title: str
     text: str
     score: float
-    similarity: float
-    lexical_match: bool
 
 
 def write_index(
@@ -149,20 +146,28 @@ def write_index(
         )
 
 
+def _terms(query: str) -> list[str]:
+    unique = dict.fromkeys(normalize(query).split())
+    return [term for term in unique if term not in _STOPWORDS]
+
+
 def build_match_query(query: str) -> str | None:
-    """Build a safe FTS5 expression. Quoting stops the customer's text acting as syntax."""
-    terms = [term for term in normalize(query).split() if term not in _STOPWORDS]
-    if not terms:
-        return None
-    unique = dict.fromkeys(term[:STEM_LENGTH] for term in terms)
-    return " OR ".join(f'"{term}"*' for term in unique)
+    """Loose expression used for ranking. Quoting stops customer text acting as FTS syntax."""
+    stems = dict.fromkeys(term[:STEM_LENGTH] for term in _terms(query))
+    return " OR ".join(f'"{stem}"*' for stem in stems) or None
+
+
+def build_strict_match_query(query: str) -> str | None:
+    """Expression used to decide existence: every word must appear, allowing plural forms."""
+    stems = (term[:-2] if len(term) >= STRICT_STEM_MIN_LENGTH else term for term in _terms(query))
+    return " AND ".join(f'"{stem}"*' for stem in stems) or None
 
 
 class HybridIndex:
     def __init__(self, store_path: Path, embedder: Embedder) -> None:
         self._store_path = store_path
         self._embedder = embedder
-        self._vectors: dict[str, tuple[np.ndarray, np.ndarray]] = {}
+        self._vectors: dict[str, tuple[list[int], np.ndarray]] = {}
         with connect_readonly(store_path) as connection:
             built_with = connection.execute(
                 "SELECT value FROM index_meta WHERE key = 'embedder'"
@@ -173,75 +178,67 @@ class HybridIndex:
                 "Execute lira-ingest novamente."
             )
 
-    def _load_vectors(self, connection: sqlite3.Connection, kind: str) -> tuple:
+    def _load_vectors(
+        self, connection: sqlite3.Connection, kind: str
+    ) -> tuple[list[int], np.ndarray]:
         if kind not in self._vectors:
             rows = connection.execute(
                 "SELECT doc_id, vector FROM documents WHERE kind = ? ORDER BY doc_id", (kind,)
             ).fetchall()
-            ids = np.array([row["doc_id"] for row in rows])
+            ids = [row["doc_id"] for row in rows]
             matrix = np.stack([np.frombuffer(row["vector"], dtype=np.float32) for row in rows])
             self._vectors[kind] = (ids, matrix)
         return self._vectors[kind]
 
-    @staticmethod
-    def _lexical_ranking(connection: sqlite3.Connection, query: str, kind: str) -> list[int]:
-        expression = build_match_query(query)
+    def matching_refs(self, query: str, kind: str) -> set[str]:
+        """Refs of the documents that literally contain every word of the query."""
+        expression = build_strict_match_query(query)
         if expression is None:
-            return []
-        rows = connection.execute(
-            "SELECT rowid FROM documents_fts WHERE documents_fts MATCH ? AND kind = ?"
-            " ORDER BY bm25(documents_fts) LIMIT ?",
-            (expression, kind, CANDIDATES_PER_RANKING),
-        ).fetchall()
-        return [row["rowid"] for row in rows]
+            return set()
+        with connect_readonly(self._store_path) as connection:
+            rows = connection.execute(
+                """
+                SELECT d.ref FROM documents_fts f JOIN documents d ON d.doc_id = f.rowid
+                WHERE documents_fts MATCH ? AND f.kind = ?
+                """,
+                (expression, kind),
+            ).fetchall()
+        return {row["ref"] for row in rows}
 
     def search(
-        self,
-        query: str,
-        kind: str,
-        k: int = 4,
-        min_similarity: float = 0.0,
-        allowed_refs: set[str] | None = None,
+        self, query: str, kind: str, k: int = 4, allowed_refs: set[str] | None = None
     ) -> list[SearchHit]:
-        """Return up to k documents.
+        """Rank documents by relevance and return the best k.
 
-        A document qualifies through a lexical match or a similarity of at least
-        min_similarity, so an irrelevant query can return nothing instead of its nearest
-        neighbor. allowed_refs restricts results to refs that passed hard filters.
+        This only orders documents. Cosine similarity does not separate relevant from
+        irrelevant here (measured: "trompete" scores above "baixo para banda"), so callers
+        decide what exists through hard filters passed in allowed_refs.
         """
         with connect_readonly(self._store_path) as connection:
             ids, matrix = self._load_vectors(connection, kind)
             similarities = matrix @ self._embedder.embed_query(query)
-            dense_order = np.argsort(-similarities)[:CANDIDATES_PER_RANKING]
-            similarity_by_id = dict(zip(ids.tolist(), similarities.tolist(), strict=True))
-            lexical = self._lexical_ranking(connection, query, kind)
-
             scores: dict[int, float] = {}
-            for rank, position in enumerate(dense_order, start=1):
-                doc_id = int(ids[position])
-                if similarity_by_id[doc_id] >= min_similarity:
-                    scores[doc_id] = 1 / (RRF_K + rank)
-            for rank, doc_id in enumerate(lexical, start=1):
-                scores[doc_id] = scores.get(doc_id, 0.0) + 1 / (RRF_K + rank)
+            for rank, position in enumerate(np.argsort(-similarities), start=1):
+                scores[ids[int(position)]] = 1 / (RRF_K + rank)
+
+            expression = build_match_query(query)
+            if expression:
+                rows = connection.execute(
+                    "SELECT rowid FROM documents_fts WHERE documents_fts MATCH ? AND kind = ?"
+                    " ORDER BY bm25(documents_fts)",
+                    (expression, kind),
+                ).fetchall()
+                for rank, row in enumerate(rows, start=1):
+                    scores[row["rowid"]] += 1 / (RRF_K + rank)
 
             hits: list[SearchHit] = []
-            lexical_ids = set(lexical)
             for doc_id in sorted(scores, key=lambda key: -scores[key]):
                 row = connection.execute(
                     "SELECT ref, title, text FROM documents WHERE doc_id = ?", (doc_id,)
                 ).fetchone()
                 if allowed_refs is not None and row["ref"] not in allowed_refs:
                     continue
-                hits.append(
-                    SearchHit(
-                        ref=row["ref"],
-                        title=row["title"],
-                        text=row["text"],
-                        score=scores[doc_id],
-                        similarity=similarity_by_id[doc_id],
-                        lexical_match=doc_id in lexical_ids,
-                    )
-                )
+                hits.append(SearchHit(row["ref"], row["title"], row["text"], scores[doc_id]))
                 if len(hits) == k:
                     break
         return hits

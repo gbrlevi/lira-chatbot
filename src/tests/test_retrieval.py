@@ -1,11 +1,15 @@
 from pathlib import Path
 
-import numpy as np
 import pytest
 from fakes import FakeEmbedder
 
 from app.ingest.documents import KIND_POLICY, KIND_PRODUCT
-from app.retrieval.index import HybridIndex, StaleIndexError, build_match_query
+from app.retrieval.index import (
+    HybridIndex,
+    StaleIndexError,
+    build_match_query,
+    build_strict_match_query,
+)
 
 
 @pytest.fixture(scope="module")
@@ -29,6 +33,10 @@ def test_match_query_with_only_stopwords_is_empty() -> None:
     assert build_match_query("o que é") is None
 
 
+def test_strict_match_requires_every_word() -> None:
+    assert build_strict_match_query("violão iniciante") == '"viol"* AND "inician"*'
+
+
 @pytest.mark.parametrize(
     "hostile",
     ['"', 'pix" OR "a', "pix AND NOT boleto", "NEAR(pix boleto)", "content:pix", "*", "(((", "'--"],
@@ -37,12 +45,11 @@ def test_fts_syntax_in_customer_text_cannot_break_the_search(
     index: HybridIndex, hostile: str
 ) -> None:
     index.search(hostile, KIND_POLICY)
+    index.matching_refs(hostile, KIND_PRODUCT)
 
 
 def test_exact_term_is_found_lexically(index: HybridIndex) -> None:
-    hits = index.search("Jadlog", KIND_POLICY)
-    assert hits[0].ref == "5.2"
-    assert hits[0].lexical_match
+    assert index.search("Jadlog", KIND_POLICY)[0].ref == "5.2"
 
 
 def test_stemming_connects_word_variations(index: HybridIndex) -> None:
@@ -59,13 +66,20 @@ def test_results_respect_k(index: HybridIndex) -> None:
     assert len(index.search("loja", KIND_POLICY, k=2)) == 2
 
 
-def test_min_similarity_lets_irrelevant_queries_return_nothing(index: HybridIndex) -> None:
-    assert index.search("saxofone", KIND_PRODUCT, min_similarity=0.5) == []
+@pytest.mark.parametrize("instrument", ["saxofone", "trompete", "flauta", "violoncelo"])
+def test_instruments_outside_the_catalog_match_nothing(index: HybridIndex, instrument: str) -> None:
+    assert index.matching_refs(instrument, KIND_PRODUCT) == set()
 
 
-def test_lexical_match_qualifies_even_below_min_similarity(index: HybridIndex) -> None:
-    hits = index.search("Takamine", KIND_PRODUCT, min_similarity=0.99)
-    assert hits and all(hit.lexical_match for hit in hits)
+def test_strict_match_accepts_plural_forms(index: HybridIndex) -> None:
+    # The query says "iniciante"; descriptions say "iniciantes".
+    assert "81" in index.matching_refs("iniciante", KIND_PRODUCT)
+
+
+def test_ranking_covers_all_allowed_documents(index: HybridIndex) -> None:
+    allowed = {str(product_id) for product_id in range(116, 131)}
+    hits = index.search("presente", KIND_PRODUCT, k=30, allowed_refs=allowed)
+    assert {hit.ref for hit in hits} == allowed
 
 
 def test_allowed_refs_applies_hard_filters(index: HybridIndex) -> None:
@@ -75,8 +89,7 @@ def test_allowed_refs_applies_hard_filters(index: HybridIndex) -> None:
 
 def test_unreliable_description_is_not_indexed(index: HybridIndex) -> None:
     # The Korg description says "Roland" and "88 teclas", which contradict the product.
-    hits = index.search("88 teclas", KIND_PRODUCT, k=65, allowed_refs={"142"})
-    assert hits == [] or "88" not in hits[0].text
+    assert "142" not in index.matching_refs("88 teclas", KIND_PRODUCT)
 
 
 def test_index_built_with_another_embedder_is_rejected(store_path: Path) -> None:
@@ -85,8 +98,3 @@ def test_index_built_with_another_embedder_is_rejected(store_path: Path) -> None
 
     with pytest.raises(StaleIndexError):
         HybridIndex(store_path, OtherEmbedder())
-
-
-def test_vectors_are_compared_by_cosine(index: HybridIndex) -> None:
-    hit = index.search("Yamaha C40 Nylon Natural", KIND_PRODUCT)[0]
-    assert 0 < hit.similarity <= 1 + np.finfo(np.float32).eps
