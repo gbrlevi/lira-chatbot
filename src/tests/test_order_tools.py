@@ -146,6 +146,13 @@ def test_recorded_total_prevails_over_the_sum_of_items(context: ToolContext) -> 
     assert order["total"] == "R$ 3.450,00"
 
 
+def test_dates_reach_the_agent_ready_to_be_repeated(context: ToolContext) -> None:
+    # The model once rewrote 2026-02-28 as 25/02/2026 when converting the format by itself.
+    order = _lookup(context, telefone=ANA_PHONE, numero_pedido=8)["pedidos"][0]
+    assert order["previsao_de_entrega"] == "28/02/2026"
+    assert order["data_do_pedido"] == "15/02/2026"
+
+
 def test_late_shipment_gets_the_days_ready(context: ToolContext, frozen_today) -> None:
     order = _lookup(context, telefone=ANA_PHONE, numero_pedido=8)["pedidos"][0]
     assert order["situacao_do_prazo"] == "Previsão de entrega vencida há 25 dias."
@@ -156,8 +163,9 @@ def test_delivered_order_states_the_withdrawal_window_and_its_caveat(
     context: ToolContext, frozen_today
 ) -> None:
     order = _lookup(context, telefone="(67) 99789-0123", numero_pedido=7)["pedidos"][0]
-    assert order["dias_desde_a_previsao_de_entrega"] == 36
-    assert order["prazo_de_arrependimento_de_7_dias"] == "provavelmente vencido"
+    assert order["prazo_de_arrependimento_de_7_dias"] == (
+        "provavelmente vencido: a previsão de entrega foi há 36 dias"
+    )
     assert "data real" in order["ressalva"]
 
 

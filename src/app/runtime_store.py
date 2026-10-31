@@ -54,7 +54,8 @@ class RuntimeStore:
     ) -> Ticket:
         """Create a ticket, or return the conversation's open one for the same reason.
 
-        A regenerated answer may call the tool again, which must not duplicate the ticket.
+        A regenerated answer may call the tool again, which must not duplicate the ticket. A
+        contact given later is saved, because the customer is told the team will use it.
         """
         with connect_writable(self._path) as connection:
             existing = connection.execute(
@@ -63,7 +64,17 @@ class RuntimeStore:
                 (thread_id, reason),
             ).fetchone()
             if existing:
-                return Ticket(**dict(existing))
+                if contact and contact != existing["contact"]:
+                    connection.execute(
+                        "UPDATE tickets SET contact = ? WHERE protocol = ?",
+                        (contact, existing["protocol"]),
+                    )
+                return Ticket(
+                    protocol=existing["protocol"],
+                    reason=existing["reason"],
+                    summary=existing["summary"],
+                    contact=contact or existing["contact"],
+                )
             cursor = connection.execute(
                 "INSERT INTO tickets (thread_id, reason, summary, contact, created_at)"
                 " VALUES (?, ?, ?, ?, ?)",

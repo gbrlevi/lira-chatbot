@@ -38,6 +38,11 @@ def normalize_phone(raw: str) -> str | None:
     return digits if len(digits) in (10, 11) else None
 
 
+def _format_date(iso_date: str) -> str:
+    """Dates go out ready to repeat, because the model can slip when converting the format."""
+    return date.fromisoformat(iso_date).strftime("%d/%m/%Y")
+
+
 def _delivery_status(order: sqlite3.Row, today: date) -> dict:
     """Date arithmetic the agent receives ready, based on the estimated date only."""
     estimated = order["estimated_delivery"]
@@ -50,12 +55,10 @@ def _delivery_status(order: sqlite3.Row, today: date) -> dict:
             "sugestao": "Ofereça abrir um chamado para a equipe verificar a entrega.",
         }
     if order["status"] == "delivered":
+        situation = "vigente" if days_since <= WITHDRAWAL_DAYS else "vencido"
         return {
-            "dias_desde_a_previsao_de_entrega": days_since,
             "prazo_de_arrependimento_de_7_dias": (
-                "provavelmente vigente"
-                if days_since <= WITHDRAWAL_DAYS
-                else "provavelmente vencido"
+                f"provavelmente {situation}: a previsão de entrega foi há {days_since} dias"
             ),
             "ressalva": (
                 "O sistema não registra a data real de recebimento, só a previsão. "
@@ -76,7 +79,7 @@ def _present_order(connection: sqlite3.Connection, order: sqlite3.Row, today: da
     ).fetchall()
     result = {
         "numero": order["order_id"],
-        "data_do_pedido": order["order_date"],
+        "data_do_pedido": _format_date(order["order_date"]),
         "status": status_label(order["status"]),
         "itens": [{"produto": item["name"], "quantidade": item["quantity"]} for item in items],
         "total": format_brl(order["total_cents"]),
@@ -85,7 +88,7 @@ def _present_order(connection: sqlite3.Connection, order: sqlite3.Row, today: da
     if order["tracking_code"]:
         result["codigo_de_rastreio"] = order["tracking_code"]
     if order["estimated_delivery"]:
-        result["previsao_de_entrega"] = order["estimated_delivery"]
+        result["previsao_de_entrega"] = _format_date(order["estimated_delivery"])
     if order["notes"]:
         result["observacao"] = order["notes"]
     result.update(_delivery_status(order, today))

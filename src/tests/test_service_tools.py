@@ -97,6 +97,27 @@ def test_repeated_call_does_not_duplicate_the_ticket(context: ToolContext) -> No
     assert len(context.runtime.list_tickets()) == 1
 
 
+def test_contact_given_later_is_saved_in_the_same_ticket(context: ToolContext) -> None:
+    first = open_ticket(context, thread_id="t1", motivo="pedido_de_atendente", resumo="Atendente")
+    second = open_ticket(
+        context,
+        thread_id="t1",
+        motivo="pedido_de_atendente",
+        resumo="Atendente",
+        contato="(67) 99999-0000",
+    )
+    assert first["protocolo"] == second["protocolo"]
+    tickets = context.runtime.list_tickets()
+    assert len(tickets) == 1
+    assert tickets[0]["contact"] == "(67) 99999-0000"
+
+
+def test_later_call_without_contact_keeps_the_saved_one(context: ToolContext) -> None:
+    open_ticket(context, thread_id="t1", motivo="reclamacao", resumo="a", contato="6799")
+    open_ticket(context, thread_id="t1", motivo="reclamacao", resumo="a")
+    assert context.runtime.list_tickets()[0]["contact"] == "6799"
+
+
 def test_distinct_reasons_and_conversations_open_new_tickets(context: ToolContext) -> None:
     open_ticket(context, thread_id="t1", motivo="reclamacao", resumo="a")
     open_ticket(context, thread_id="t1", motivo="pedido_atrasado", resumo="b")
