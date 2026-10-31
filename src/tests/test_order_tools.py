@@ -166,7 +166,22 @@ def test_delivered_order_states_the_withdrawal_window_and_its_caveat(
     assert order["prazo_de_arrependimento_de_7_dias"] == (
         "provavelmente vencido: a previsão de entrega foi há 36 dias"
     )
+    assert "provavelmente já venceu" in order["orientacao_se_o_cliente_quiser_devolver"]
     assert "data real" in order["ressalva"]
+
+
+def test_recent_delivery_is_reported_as_inside_the_window(
+    context: ToolContext, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    monkeypatch.setenv("REFERENCE_DATETIME", "2026-02-20T10:00:00")
+    get_settings.cache_clear()
+    try:
+        order = _lookup(context, telefone="(67) 99789-0123", numero_pedido=7)["pedidos"][0]
+    finally:
+        monkeypatch.delenv("REFERENCE_DATETIME")
+        get_settings.cache_clear()
+    assert order["prazo_de_arrependimento_de_7_dias"].startswith("provavelmente vigente")
+    assert "dentro do prazo" in order["orientacao_se_o_cliente_quiser_devolver"]
 
 
 def test_cancellation_reason_is_available(context: ToolContext) -> None:

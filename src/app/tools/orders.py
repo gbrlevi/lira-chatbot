@@ -55,10 +55,17 @@ def _delivery_status(order: sqlite3.Row, today: date) -> dict:
             "sugestao": "Ofereça abrir um chamado para a equipe verificar a entrega.",
         }
     if order["status"] == "delivered":
-        situation = "vigente" if days_since <= WITHDRAWAL_DAYS else "vencido"
+        within_window = days_since <= WITHDRAWAL_DAYS
+        situation = "vigente" if within_window else "vencido"
         return {
             "prazo_de_arrependimento_de_7_dias": (
                 f"provavelmente {situation}: a previsão de entrega foi há {days_since} dias"
+            ),
+            "orientacao_se_o_cliente_quiser_devolver": (
+                "Diga que, pela previsão de entrega, ainda parece estar dentro do prazo de 7 dias."
+                if within_window
+                else "Diga claramente que, pela previsão de entrega, o prazo de 7 dias provavelmente "
+                "já venceu, e ofereça abrir um chamado para a equipe avaliar."
             ),
             "ressalva": (
                 "O sistema não registra a data real de recebimento, só a previsão. "
