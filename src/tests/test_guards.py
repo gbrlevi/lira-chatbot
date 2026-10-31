@@ -74,6 +74,14 @@ def test_customer_amounts_do_not_need_the_symbol(text: str, cents: set[int]) -> 
     assert cents <= guards.amounts_said_by_customer(text)
 
 
+@pytest.mark.parametrize(
+    "text",
+    ["Takamine GD20", "em 10x", "meu telefone é 99654-7821", "pedido BRJL5544332BR"],
+)
+def test_numbers_that_are_not_amounts_do_not_count(text: str) -> None:
+    assert guards.amounts_said_by_customer(text) == set()
+
+
 def test_amount_from_a_tool_is_known() -> None:
     messages = [ToolMessage('{"preco": "R$ 2.199,00"}', tool_call_id="1")]
     assert guards.unverified_amounts("Custa R$ 2.199,00.", messages) == set()

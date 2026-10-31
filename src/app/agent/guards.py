@@ -27,7 +27,7 @@ UNVERIFIED_AMOUNT_CORRECTION = (
 EMPTY_ANSWER_CORRECTION = "A resposta anterior veio vazia. Responda à última mensagem do cliente."
 
 _AMOUNT_IN_REAIS = re.compile(r"R\$\s*(\d[\d.]*)(?:,(\d{1,2}))?")
-_PLAIN_NUMBER = re.compile(r"(?<![\d.,])(\d[\d.]*)(?:,(\d{1,2}))?(?![\d])")
+_PLAIN_NUMBER = re.compile(r"(?<![\w.,-])(\d[\d.]*)(?:,(\d{1,2}))?(?![\w-])")
 _THOUSANDS = re.compile(r"(?:(\d+)\s*)?\bmil\b", re.IGNORECASE)
 
 

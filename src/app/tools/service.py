@@ -1,12 +1,16 @@
 """Tools for policies, installment simulation and escalation to the team."""
 
+from collections.abc import Sequence
 from decimal import ROUND_HALF_UP, Decimal
-from typing import Literal
+from typing import Annotated, Literal
 
+from langchain_core.messages import BaseMessage
 from langchain_core.runnables import RunnableConfig
 from langchain_core.tools import BaseTool, tool
+from langgraph.prebuilt import InjectedState
 from pydantic import BaseModel, Field
 
+from app.agent.guards import known_amounts
 from app.domain import clock
 from app.domain.installments import simulate
 from app.domain.pricing import format_brl
@@ -15,6 +19,10 @@ from app.tools.context import ToolContext, thread_id_of, to_json
 
 POLICY_RESULTS = 4
 TEAM_RESPONSE_TIME = "24 horas úteis"
+UNCONFIRMED_AMOUNT = (
+    "O valor {valor} não foi confirmado. Consulte o preço com buscar_produtos, espere o retorno "
+    "e chame esta ferramenta de novo com o preço retornado. Não use este resultado na resposta."
+)
 
 TicketReason = Literal[
     "reclamacao",
@@ -41,8 +49,18 @@ def search_policies(context: ToolContext, pergunta: str) -> dict:
     }
 
 
-def simulate_installments(valor: float, parcelas_desejadas: int | None = None) -> dict:
-    cents = int((Decimal(str(valor)) * 100).quantize(Decimal(1), rounding=ROUND_HALF_UP))
+def _to_cents(reais: float) -> int:
+    return int((Decimal(str(reais)) * 100).quantize(Decimal(1), rounding=ROUND_HALF_UP))
+
+
+def simulate_installments(
+    valor: float, parcelas_desejadas: int | None = None, messages: Sequence[BaseMessage] = ()
+) -> dict:
+    """Refuse amounts nobody stated. The model can call this together with the price search,
+    before seeing any price, and a guessed amount would come back looking like tool data."""
+    cents = _to_cents(valor)
+    if cents not in known_amounts(messages):
+        return {"erro": UNCONFIRMED_AMOUNT.format(valor=format_brl(cents))}
     plan = simulate(cents)
     result: dict = {
         "valor": format_brl(plan.total_cents),
@@ -86,6 +104,7 @@ class InstallmentInput(BaseModel):
     parcelas_desejadas: int | None = Field(
         default=None, ge=1, description="Número de parcelas pedido pelo cliente, se houver."
     )
+    state: Annotated[dict, InjectedState]
 
 
 class TicketInput(BaseModel):
@@ -107,12 +126,18 @@ def build_service_tools(context: ToolContext) -> list[BaseTool]:
         return to_json(search_policies(context, pergunta))
 
     @tool("simular_parcelamento", args_schema=InstallmentInput)
-    def simular_parcelamento(valor: float, parcelas_desejadas: int | None = None) -> str:
+    def simular_parcelamento(
+        valor: float,
+        state: Annotated[dict, InjectedState],
+        parcelas_desejadas: int | None = None,
+    ) -> str:
         """Calcula as parcelas sem juros permitidas para um valor, pelas regras da loja.
 
         Use sempre que o cliente perguntar sobre parcelamento; nunca calcule por conta própria.
+        Para um produto, primeiro obtenha o preço com buscar_produtos e só então chame esta
+        ferramenta, em uma etapa seguinte, com o preço retornado.
         """
-        return to_json(simulate_installments(valor, parcelas_desejadas))
+        return to_json(simulate_installments(valor, parcelas_desejadas, state["messages"]))
 
     @tool("registrar_chamado", args_schema=TicketInput)
     def registrar_chamado(

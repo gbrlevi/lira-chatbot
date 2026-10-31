@@ -4,6 +4,7 @@ from pathlib import Path
 
 import pytest
 from fakes import FakeEmbedder
+from langchain_core.messages import HumanMessage, ToolMessage
 
 from app.domain.clock import STORE_TIMEZONE
 from app.retrieval.index import HybridIndex
@@ -34,8 +35,30 @@ def test_policy_search_warns_that_excerpts_may_not_answer(context: ToolContext) 
     assert "sem acrescentar condições" in result["aviso"]
 
 
+def _customer_said(*amounts: str) -> list[HumanMessage]:
+    return [HumanMessage(f"Quero parcelar {amount}") for amount in amounts]
+
+
+def test_installments_refuse_an_amount_nobody_stated() -> None:
+    # The model once sent 2490 for a product of R$ 2.199,00, before seeing the price.
+    known_price = ToolMessage('{"preco": "R$ 2.199,00"}', tool_call_id="1")
+    result = simulate_installments(2490, 10, [known_price])
+    assert "não foi confirmado" in result["erro"]
+    assert "opcoes_sem_juros" not in result
+
+
+def test_installments_accept_a_price_returned_by_a_tool() -> None:
+    known_price = ToolMessage('{"preco": "R$ 2.199,00"}', tool_call_id="1")
+    plan = simulate_installments(2199, 10, [known_price])
+    assert plan["parcelas_desejadas_permitidas"] is True
+
+
+def test_installments_accept_an_amount_said_by_the_customer() -> None:
+    assert simulate_installments(3000, 12, _customer_said("3000"))["maximo_de_parcelas"] == 12
+
+
 def test_installments_list_only_allowed_options() -> None:
-    result = simulate_installments(429.90, 6)
+    result = simulate_installments(429.90, 6, _customer_said("R$ 429,90"))
     assert result["valor"] == "R$ 429,90"
     assert result["maximo_de_parcelas"] == 5
     assert result["parcelas_desejadas_permitidas"] is False
@@ -43,11 +66,12 @@ def test_installments_list_only_allowed_options() -> None:
 
 
 def test_installments_handle_float_values_exactly() -> None:
-    assert simulate_installments(599.9)["valor"] == "R$ 599,90"
+    assert simulate_installments(599.9, None, _customer_said("R$ 599,90"))["valor"] == "R$ 599,90"
 
 
 def test_allowed_installment_is_confirmed() -> None:
-    assert simulate_installments(1200, 12)["parcelas_desejadas_permitidas"] is True
+    plan = simulate_installments(1200, 12, _customer_said("1200"))
+    assert plan["parcelas_desejadas_permitidas"] is True
 
 
 def test_ticket_returns_protocol_and_response_time(context: ToolContext) -> None:
@@ -116,12 +140,22 @@ def test_every_tool_describes_when_to_use_it(context: ToolContext) -> None:
     for tool in build_tools(context):
         assert "Use" in tool.description or "chame" in tool.description, tool.name
         for name, field in tool.args_schema.model_fields.items():
-            assert field.description, f"{tool.name}.{name}"
+            assert name == "state" or field.description, f"{tool.name}.{name}"
+
+
+def test_injected_state_is_hidden_from_the_model(context: ToolContext) -> None:
+    tools = {tool.name: tool for tool in build_tools(context)}
+    assert set(tools["simular_parcelamento"].tool_call_schema.model_fields) == {
+        "valor",
+        "parcelas_desejadas",
+    }
 
 
 def test_tools_return_json_through_the_tool_interface(context: ToolContext) -> None:
     tools = {tool.name: tool for tool in build_tools(context)}
-    assert json.loads(tools["simular_parcelamento"].invoke({"valor": 500.0}))["valor"]
+    state = {"messages": _customer_said("500")}
+    simulation = tools["simular_parcelamento"].invoke({"valor": 500.0, "state": state})
+    assert json.loads(simulation)["valor"]
     assert json.loads(tools["consultar_politicas"].invoke({"pergunta": "PIX"}))[
         "trechos_da_politica"
     ]

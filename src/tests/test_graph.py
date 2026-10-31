@@ -76,6 +76,25 @@ def test_two_tools_in_sequence_for_a_mixed_question(tools: list) -> None:
     ]
 
 
+def test_guessed_price_in_a_parallel_call_is_refused_and_recovered(tools: list) -> None:
+    # Reproduces a real failure: the model asked for the installments together with the
+    # price search, inventing the amount before seeing any price.
+    model = ScriptedModel(
+        ai_with_tools(
+            tool_call("buscar_produtos", modelo="Takamine GD20"),
+            tool_call("simular_parcelamento", valor=2490, parcelas_desejadas=10),
+        ),
+        ai_with_tools(tool_call("simular_parcelamento", valor=2199, parcelas_desejadas=10)),
+        "Custa R$ 2.199,00, em 10x de R$ 219,90.",
+    )
+    messages = _run(build_graph(model, tools), "GD20 em 10x?")
+    simulations = [m for m in messages if isinstance(m, ToolMessage) and m.name.startswith("sim")]
+    assert "não foi confirmado" in json.loads(simulations[0].content)["erro"]
+    assert "R$ 219,90" in simulations[1].content
+    assert not any("249,00" in str(message.content) for message in messages)
+    assert messages[-1].content == "Custa R$ 2.199,00, em 10x de R$ 219,90."
+
+
 def test_parallel_tool_calls_all_run(tools: list) -> None:
     model = ScriptedModel(
         ai_with_tools(
