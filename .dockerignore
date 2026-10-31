@@ -1,0 +1,10 @@
+.git
+.env
+.venv
+var
+__pycache__
+.pytest_cache
+.ruff_cache
+src/tests
+src/evals
+src/examples

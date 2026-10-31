@@ -1,0 +1,12 @@
+services:
+  lira:
+    build: .
+    ports:
+      - "8000:8000"
+    env_file:
+      - .env
+    volumes:
+      - lira-data:/app/var
+
+volumes:
+  lira-data:
