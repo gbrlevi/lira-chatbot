@@ -1,0 +1,22 @@
+# Environment
+.env
+.venv/
+
+# Generated databases and caches
+var/
+*.db
+*.db-shm
+*.db-wal
+
+# Python
+__pycache__/
+*.py[cod]
+.pytest_cache/
+.ruff_cache/
+dist/
+build/
+*.egg-info/
+
+# Editors
+.vscode/
+.idea/
