@@ -17,6 +17,7 @@ from langgraph.prebuilt import ToolNode
 from langgraph.prebuilt.tool_node import ToolInvocationError
 
 from app.agent import guards
+from app.agent.history import select_window
 from app.agent.prompts import build_system_prompt
 from app.agent.state import AgentState
 from app.domain import clock
@@ -104,7 +105,8 @@ def build_graph(model: BaseChatModel, tools: Sequence[BaseTool], checkpointer: A
         prompt = build_system_prompt()
         if state.get("correction"):
             prompt = f"{prompt}\n\n<correcao>{state['correction']}</correcao>"
-        return {"messages": [model_with_tools.invoke([SystemMessage(prompt), *state["messages"]])]}
+        window = select_window(state["messages"])
+        return {"messages": [model_with_tools.invoke([SystemMessage(prompt), *window])]}
 
     workflow = StateGraph(AgentState)
     workflow.add_node(NODE_INPUT_GUARD, _input_guard)
