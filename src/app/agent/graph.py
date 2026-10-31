@@ -15,10 +15,12 @@ from langchain_core.tools import BaseTool
 from langgraph.graph import END, START, StateGraph
 from langgraph.prebuilt import ToolNode
 from langgraph.prebuilt.tool_node import ToolInvocationError
+from langgraph.types import RetryPolicy
 
 from app.agent import guards
 from app.agent.history import select_window
 from app.agent.prompts import build_system_prompt
+from app.agent.resilience import is_transient
 from app.agent.state import AgentState
 from app.domain import clock
 from app.domain.pricing import format_brl
@@ -32,6 +34,8 @@ NODE_STORE_HOURS = "store_hours_notice"
 # Enough for several tools per turn, while stopping a model stuck in a loop.
 RECURSION_LIMIT = 25
 MAX_REGENERATIONS = 1
+MODEL_ATTEMPTS = 3
+DEFAULT_RETRY_INTERVAL = 2.0
 
 
 def _handle_tool_error(error: Exception) -> str:
@@ -98,7 +102,12 @@ def _store_hours_notice(state: AgentState) -> dict:
     return {"messages": [AIMessage(content=f"{answer.text}\n\n{notice}", id=answer.id)]}
 
 
-def build_graph(model: BaseChatModel, tools: Sequence[BaseTool], checkpointer: Any = None) -> Any:
+def build_graph(
+    model: BaseChatModel,
+    tools: Sequence[BaseTool],
+    checkpointer: Any = None,
+    retry_interval: float = DEFAULT_RETRY_INTERVAL,
+) -> Any:
     model_with_tools = model.bind_tools(list(tools))
 
     def agent(state: AgentState) -> dict:
@@ -110,7 +119,13 @@ def build_graph(model: BaseChatModel, tools: Sequence[BaseTool], checkpointer: A
 
     workflow = StateGraph(AgentState)
     workflow.add_node(NODE_INPUT_GUARD, _input_guard)
-    workflow.add_node(NODE_AGENT, agent)
+    workflow.add_node(
+        NODE_AGENT,
+        agent,
+        retry_policy=RetryPolicy(
+            max_attempts=MODEL_ATTEMPTS, initial_interval=retry_interval, retry_on=is_transient
+        ),
+    )
     workflow.add_node(NODE_TOOLS, ToolNode(tools, handle_tool_errors=_handle_tool_error))
     workflow.add_node(NODE_OUTPUT_GUARD, _output_guard)
     workflow.add_node(NODE_STORE_HOURS, _store_hours_notice)
