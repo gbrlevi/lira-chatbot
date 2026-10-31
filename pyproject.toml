@@ -23,6 +23,7 @@ dependencies = [
 [project.scripts]
 lira = "app.interfaces.cli:main"
 lira-ingest = "app.ingest.run:main"
+lira-api = "app.interfaces.api:main"
 
 [build-system]
 requires = ["hatchling"]
