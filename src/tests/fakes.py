@@ -1,10 +1,43 @@
 """Test doubles that keep the suite offline and deterministic."""
 
 import hashlib
+from uuid import uuid4
 
 import numpy as np
+from langchain_core.messages import AIMessage, BaseMessage
 
 from app.text import normalize
+
+
+def tool_call(name: str, **args) -> dict:
+    return {"name": name, "args": args, "id": f"call-{uuid4().hex}", "type": "tool_call"}
+
+
+def ai_with_tools(*calls: dict) -> AIMessage:
+    return AIMessage(content="", tool_calls=list(calls))
+
+
+class ScriptedModel:
+    """Answers with a fixed script and records what it received on each call.
+
+    An exception in the script is raised instead of returned, to simulate provider failures.
+    """
+
+    def __init__(self, *responses: AIMessage | str | Exception) -> None:
+        self._responses = list(responses)
+        self.received: list[list[BaseMessage]] = []
+        self.bound_tools: list = []
+
+    def bind_tools(self, tools: list) -> "ScriptedModel":
+        self.bound_tools = tools
+        return self
+
+    def invoke(self, messages: list[BaseMessage], *_args, **_kwargs) -> AIMessage:
+        self.received.append(list(messages))
+        response = self._responses.pop(0)
+        if isinstance(response, Exception):
+            raise response
+        return AIMessage(content=response) if isinstance(response, str) else response
 
 
 class FakeEmbedder:

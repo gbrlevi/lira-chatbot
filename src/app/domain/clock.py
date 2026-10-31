@@ -59,6 +59,14 @@ def next_opening(moment: datetime) -> datetime:
     return datetime.combine(day, hours[0], moment.tzinfo)
 
 
+def team_return_notice(moment: datetime) -> str:
+    reopening = next_opening(moment)
+    return (
+        "Ah, um aviso: nossa equipe está fora do expediente agora e volta "
+        f"{_WEEKDAYS[reopening.weekday()]}, {reopening:%d/%m}, às {reopening:%H:%M}."
+    )
+
+
 def describe(moment: datetime) -> str:
     """Short status line given to the agent on every turn."""
     current = f"{_WEEKDAYS[moment.weekday()]}, {moment:%d/%m/%Y}, {moment:%H:%M}"

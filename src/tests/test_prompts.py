@@ -31,7 +31,7 @@ def test_each_module_is_well_formed_xml(name: str) -> None:
 
 def test_composed_prompt_is_well_formed_and_has_every_section() -> None:
     root = ET.fromstring(f"<root>{build_system_prompt(OPEN_MOMENT)}</root>")
-    assert CANONICAL_SECTIONS <= {element.tag for element in root.iter()}
+    assert {element.tag for element in root.iter()} >= CANONICAL_SECTIONS
 
 
 def test_critical_rules_open_and_close_the_prompt() -> None:
