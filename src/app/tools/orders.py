@@ -64,8 +64,8 @@ def _delivery_status(order: sqlite3.Row, today: date) -> dict:
             "orientacao_se_o_cliente_quiser_devolver": (
                 "Diga que, pela previsão de entrega, ainda parece estar dentro do prazo de 7 dias."
                 if within_window
-                else "Diga claramente que, pela previsão de entrega, o prazo de 7 dias provavelmente "
-                "já venceu, e ofereça abrir um chamado para a equipe avaliar."
+                else "Diga claramente que, pela previsão de entrega, o prazo de 7 dias "
+                "provavelmente já venceu, e ofereça abrir um chamado para a equipe avaliar."
             ),
             "ressalva": (
                 "O sistema não registra a data real de recebimento, só a previsão. "
