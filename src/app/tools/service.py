@@ -30,7 +30,7 @@ TicketReason = Literal[
 def search_policies(context: ToolContext, pergunta: str) -> dict:
     hits = context.index.search(pergunta, KIND_POLICY, k=POLICY_RESULTS)
     return {
-        "trechos_do_manual": [
+        "trechos_da_politica": [
             {"secao": hit.ref, "titulo": hit.title, "texto": hit.text} for hit in hits
         ],
         "aviso": (

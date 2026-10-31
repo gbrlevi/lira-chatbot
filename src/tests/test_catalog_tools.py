@@ -99,6 +99,14 @@ def test_empty_category_returns_nothing(context: ToolContext) -> None:
     assert result["total_encontrado"] == 0
 
 
+def test_empty_result_offers_only_categories_that_have_products(context: ToolContext) -> None:
+    result = search_products(context, categoria="Instrumentos de Sopro (Metais)")
+    offered = result["categorias_com_produtos_disponiveis"]
+    assert "Violões" in offered
+    assert "Instrumentos de Sopro (Metais)" not in offered
+    assert "Cordas Orquestrais" not in offered
+
+
 def test_out_of_stock_model_is_reported_with_alternatives(context: ToolContext) -> None:
     product = search_products(context, modelo="Giannini GF-3D")["produtos"][0]
     assert product["disponibilidade"] == "temporariamente indisponível"

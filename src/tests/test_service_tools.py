@@ -23,7 +23,7 @@ def context(
 
 def test_policy_search_cites_the_section(context: ToolContext) -> None:
     result = search_policies(context, "Jadlog")
-    first = result["trechos_do_manual"][0]
+    first = result["trechos_da_politica"][0]
     assert first["secao"] == "5.2"
     assert "Jadlog" in first["texto"]
 
@@ -122,7 +122,9 @@ def test_every_tool_describes_when_to_use_it(context: ToolContext) -> None:
 def test_tools_return_json_through_the_tool_interface(context: ToolContext) -> None:
     tools = {tool.name: tool for tool in build_tools(context)}
     assert json.loads(tools["simular_parcelamento"].invoke({"valor": 500.0}))["valor"]
-    assert json.loads(tools["consultar_politicas"].invoke({"pergunta": "PIX"}))["trechos_do_manual"]
+    assert json.loads(tools["consultar_politicas"].invoke({"pergunta": "PIX"}))[
+        "trechos_da_politica"
+    ]
     ticket = tools["registrar_chamado"].invoke(
         {"motivo": "duvida_sem_resposta", "resumo": "Sem resposta"},
         config={"configurable": {"thread_id": "t9"}},

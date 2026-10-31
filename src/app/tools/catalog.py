@@ -253,9 +253,16 @@ def search_products(
             "cliente antes de tratá-los como o produto pedido."
         )
     if not total:
+        # An empty result invites the model to fill the gap from general knowledge, so it
+        # gets true options to offer instead.
+        available = summarize_catalog(context)["categorias"]
+        result["categorias_com_produtos_disponiveis"] = [
+            entry["categoria"] for entry in available if entry["disponiveis"]
+        ]
         result["observacao"] = (
             "Nada encontrado no sistema com esses critérios. Diga isso ao cliente sem afirmar "
-            "que a loja nunca trabalhou com o item."
+            "que a loja nunca trabalhou com o item. Não cite outros instrumentos, categorias ou "
+            "produtos além dos listados em categorias_com_produtos_disponiveis."
         )
     return result
 
