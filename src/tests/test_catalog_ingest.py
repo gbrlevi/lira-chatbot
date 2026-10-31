@@ -3,6 +3,7 @@ import sqlite3
 from pathlib import Path
 
 import pytest
+from fakes import FakeEmbedder
 
 from app.config import REPO_ROOT
 from app.db import connect_readonly
@@ -117,7 +118,7 @@ def test_recorded_order_total_is_kept_even_when_items_disagree(store_path: Path)
 
 
 def test_report_surfaces_data_oddities(tmp_path: Path) -> None:
-    report = build_store(DATA_DIR, tmp_path / "store.db")
+    report = build_store(DATA_DIR, tmp_path / "store.db", FakeEmbedder()).catalog
     assert report.order_total_mismatches == [3, 20]
     assert report.shared_emails == ["bruno.martins@jmail.com"]
     assert report.unreliable_descriptions == [135, 137, 139, 140, 142, 144]
@@ -138,14 +139,14 @@ def test_store_is_read_only_for_tools(store_path: Path) -> None:
 
 def test_rebuild_is_idempotent(tmp_path: Path) -> None:
     target = tmp_path / "store.db"
-    first = build_store(DATA_DIR, target)
-    second = build_store(DATA_DIR, target)
+    first = build_store(DATA_DIR, target, FakeEmbedder())
+    second = build_store(DATA_DIR, target, FakeEmbedder())
     assert first == second
 
 
 def test_failed_build_keeps_previous_store(tmp_path: Path) -> None:
     target = tmp_path / "store.db"
-    build_store(DATA_DIR, target)
+    build_store(DATA_DIR, target, FakeEmbedder())
 
     broken_dir = tmp_path / "broken"
     shutil.copytree(DATA_DIR, broken_dir)
@@ -156,5 +157,5 @@ def test_failed_build_keeps_previous_store(tmp_path: Path) -> None:
     )
 
     with pytest.raises(DataValidationError):
-        build_store(broken_dir, target)
+        build_store(broken_dir, target, FakeEmbedder())
     assert _one(target, "SELECT COUNT(*) FROM promotions")[0] == 25

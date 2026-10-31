@@ -2,6 +2,7 @@ import os
 from pathlib import Path
 
 import pytest
+from fakes import FakeEmbedder
 
 from app.config import REPO_ROOT
 from app.ingest.run import build_store
@@ -14,7 +15,12 @@ DATA_DIR = REPO_ROOT / "data"
 
 
 @pytest.fixture(scope="session")
-def store_path(tmp_path_factory: pytest.TempPathFactory) -> Path:
+def embedder() -> FakeEmbedder:
+    return FakeEmbedder()
+
+
+@pytest.fixture(scope="session")
+def store_path(tmp_path_factory: pytest.TempPathFactory, embedder: FakeEmbedder) -> Path:
     path = tmp_path_factory.mktemp("store") / "emporio.db"
-    build_store(DATA_DIR, path)
+    build_store(DATA_DIR, path, embedder)
     return path
