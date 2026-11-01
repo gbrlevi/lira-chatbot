@@ -259,7 +259,15 @@ CASES: tuple[Case, ...] = (
         "politicas",
         "Consegue reservar um Yamaha C40 pra mim até sábado?",
         required_tools=[POLICIES],
-        must_not_contain=("não trabalha", "reservei", "reservado"),
+        must_contain=("informação|equipe|chamado",),
+        must_not_contain=(
+            "não trabalha",
+            "não fazemos",
+            "não temos um sistema",
+            "não temos reserva",
+            "reservei",
+            "reservado",
+        ),
     ),
     _case(
         "policy_defect_exchange_window",
