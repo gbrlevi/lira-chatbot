@@ -1,0 +1,70 @@
+[
+ {
+  "strategy": "bm25",
+  "questions": 40,
+  "recall_at_4": 0.95,
+  "recall_at_1": 0.775,
+  "mrr": 0.85,
+  "median_ms": 1.1,
+  "misses": [
+   "Onde vocês ficam?",
+   "Comprei pela internet e não gostei, e agora?"
+  ]
+ },
+ {
+  "strategy": "vetorial fastembed",
+  "questions": 40,
+  "recall_at_4": 0.725,
+  "recall_at_1": 0.575,
+  "mrr": 0.642,
+  "median_ms": 6.3,
+  "misses": [
+   "Qual o endereço da loja?",
+   "Aceita PIX?",
+   "Quanto tempo o boleto demora para compensar?",
+   "Posso parcelar em 12 vezes?",
+   "Quero trocar a cor do meu ukulele",
+   "Posso devolver a boquilha do meu saxofone?",
+   "Quanto tempo demora o SEDEX?",
+   "O produto chegou amassado na entrega",
+   "Quero fazer uma reclamação",
+   "A promoção que eu vi acabou, ainda vale?",
+   "Vocês vendem palhetas?"
+  ]
+ },
+ {
+  "strategy": "hibrido fastembed",
+  "questions": 40,
+  "recall_at_4": 0.95,
+  "recall_at_1": 0.675,
+  "mrr": 0.785,
+  "median_ms": 7.5,
+  "misses": [
+   "O instrumento quebrou depois de um mês, o que faço?",
+   "O produto chegou amassado na entrega"
+  ]
+ },
+ {
+  "strategy": "vetorial gemini",
+  "questions": 40,
+  "recall_at_4": 0.95,
+  "recall_at_1": 0.825,
+  "mrr": 0.881,
+  "median_ms": 476.6,
+  "misses": [
+   "Onde vocês ficam?",
+   "Quero trocar a cor do meu ukulele"
+  ]
+ },
+ {
+  "strategy": "hibrido gemini",
+  "questions": 40,
+  "recall_at_4": 0.975,
+  "recall_at_1": 0.775,
+  "mrr": 0.869,
+  "median_ms": 511.3,
+  "misses": [
+   "Onde vocês ficam?"
+  ]
+ }
+]
