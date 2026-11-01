@@ -23,7 +23,7 @@ from app.tools.context import ToolContext
 from app.tools.registry import build_tools
 
 EXAMPLES_DIR = Path(__file__).parent.parent / "examples"
-PAUSE_SECONDS = 4.0
+PAUSE_SECONDS = 8.0
 OPEN = "2026-03-25T10:00:00"
 CLOSED = "2026-03-28T15:00:00"
 
@@ -54,7 +54,7 @@ SCENARIOS = (
         "02_devolucao_com_pedido_real.md",
         "Devolução: política aplicada a um pedido real",
         "Caso não trivial: a Lira pede os dados de verificação, consulta o pedido, aplica a "
-        "política de arrependimento à data do pedido e abre um chamado.",
+        "política de arrependimento à previsão de entrega e abre um chamado.",
         OPEN,
         (
             "Me arrependi da minha compra, posso devolver meu pedido?",

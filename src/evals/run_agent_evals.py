@@ -32,7 +32,7 @@ from app.tools.context import ToolContext
 from app.tools.registry import build_tools
 
 RESULTS_DIR = Path(__file__).parent / "results"
-PAUSE_BETWEEN_TURNS_SECONDS = 4.0
+PAUSE_BETWEEN_TURNS_SECONDS = 6.0
 MAX_PROVIDER_ERRORS_IN_A_ROW = 3
 
 
