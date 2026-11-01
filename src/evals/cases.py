@@ -83,6 +83,15 @@ CASES: tuple[Case, ...] = (
         must_not_contain=("417,24",),
     ),
     _case(
+        "catalog_promotion_after_a_pix_price",
+        "catalogo",
+        "Quanto custa o Takamine GD20?",
+        "E o Ohana CK-20, quanto está?",
+        required_tools=[SEARCH],
+        must_contain=("549,00", "439,20"),
+        must_not_contain=("417,24", "no pix"),
+    ),
+    _case(
         "catalog_out_of_stock",
         "catalogo",
         "Tem o Giannini GF-3D?",
