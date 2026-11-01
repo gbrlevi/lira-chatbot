@@ -8,18 +8,18 @@ _Conversa real, capturada com o relógio fixado em 2026-03-25T10:00:00._
 
 > Ferramentas: `consultar_pedidos`
 
-**Lira:** Não localizei nenhum pedido com os dados informados. Pode conferir se o número do pedido e o telefone da compra estão certinhos?
+**Lira:** Não encontrei nenhum pedido com esses dados por aqui. Pode conferir se o número do pedido e o telefone com DDD estão certinhos?
 
 **Cliente:** Ah, errei o número. É o pedido 8.
 
 > Ferramentas: `consultar_pedidos`
 
-**Lira:** Oi, Ana! O seu pedido 8, que tem o ukulele Kala KA-C Concert Mogno, foi enviado, mas infelizmente a previsão de entrega era para 28/02/2026 e está atrasada. O código de rastreio é BRJL5544332BR. 
+**Lira:** Oi, Ana! O seu pedido 8 (Kala KA-C Concert Mogno) foi enviado, mas a previsão de entrega era 28/02/2026 e ele está com atraso. 
 
-Quer que eu abra um chamado para a nossa equipe verificar o que aconteceu com a entrega?
+O código de rastreio é BRJL5544332BR. Quer que eu abra um chamado para a equipe verificar a entrega com a transportadora?
 
 **Cliente:** Pode abrir o chamado, por favor.
 
 > Ferramentas: `registrar_chamado`
 
-**Lira:** Prontinho, Ana! Já registrei seu chamado. O número do protocolo é EM-20260325-0002 e a equipe vai te retornar em até 24 horas úteis pelo telefone que você informou. Posso ajudar com mais alguma coisa?
+**Lira:** Prontinho, Ana! Já registrei o chamado sobre o atraso. O seu protocolo é o EM-20260325-0002 e a equipe vai te dar um retorno em até 24 horas úteis pelo telefone que você passou. Posso ajudar com mais alguma coisa?
