@@ -33,6 +33,7 @@ def test_policy_search_warns_that_excerpts_may_not_answer(context: ToolContext) 
     result = search_policies(context, "tem estacionamento?")
     assert "não tem essa informação" in result["aviso"]
     assert "sem acrescentar condições" in result["aviso"]
+    assert "não significa que a loja não faça" in result["aviso"]
 
 
 def _customer_said(*amounts: str) -> list[HumanMessage]:

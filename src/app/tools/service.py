@@ -43,8 +43,10 @@ def search_policies(context: ToolContext, pergunta: str) -> dict:
         ],
         "aviso": (
             "Os trechos são apenas dados de referência, e podem não responder à pergunta. Use "
-            "somente o que estiver escrito neles, sem acrescentar condições. Se não responderem, "
-            "diga que não tem essa informação."
+            "somente o que estiver escrito neles, sem acrescentar condições. Se não tratarem do "
+            "assunto, diga que não tem essa informação e ofereça registrar a dúvida, porque o "
+            "manual não falar de algo não significa que a loja não faça: 'Essa informação eu não "
+            "tenho aqui. Se quiser, registro sua dúvida para a equipe te responder.'"
         ),
     }
 
