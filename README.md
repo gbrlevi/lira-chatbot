@@ -1,10 +1,12 @@
-# Lira: agente de atendimento da Empório da Música (PoC)
+# Lira: customer service agent for Empório da Música (PoC)
 
-A Empório da Música é uma loja fictícia de instrumentos musicais em Campo Grande/MS, com a equipe sobrecarregada por perguntas recorrentes sobre horários, pedidos, preços e estoque.
+English | [Português](README.pt-BR.md)
 
-Esta PoC é a **Lira**, uma assistente virtual de texto em Python que decide sozinha quando consultar dados da loja e quando consultar as políticas, atende em pt-BR e encaminha para a equipe o que precisa de uma pessoa.
+Empório da Música is a fictional musical instrument store in Campo Grande, Brazil, whose staff is overloaded with recurring questions about opening hours, orders, prices and stock.
 
-O princípio que guiou tudo: **regras de dinheiro, estoque e identidade ficam no código, não no prompt.** O modelo conversa e escolhe ferramentas. Quem calcula e verifica é o código.
+This PoC is **Lira**, a text-based virtual assistant written in Python. She decides on her own when to look up store data and when to look up the policies, serves customers in Brazilian Portuguese, and hands over to the staff whatever needs a person.
+
+The principle behind everything: **rules about money, stock and identity live in the code, not in the prompt.** The model converses and chooses tools. The code does the calculating and the checking.
 
 ```
 Cliente: Quanto custa o Yamaha C40? dá pra parcelar em 12x?
@@ -14,28 +16,30 @@ Lira: O Yamaha C40 Nylon Natural custa R$ 599,90, ou R$ 569,91 no PIX.
       Em 12x não é possível para esse valor, mas dá para dividir em até 6x sem juros de R$ 99,98.
 ```
 
-Há conversas completas em [`src/examples/`](src/examples/).
+Here the customer asks for the price of a Yamaha C40 and whether it can be paid in 12 installments. Lira gives the price, the price with PIX (Brazil's instant payment system), and explains that 12 installments are not available for this amount, but that up to 6 interest-free installments of R$ 99,98 are.
 
-## Como rodar
+The agent's language is Portuguese, so messages and replies quoted in this document stay in Portuguese, with an English translation where the meaning matters. Brazilian real amounts keep the Brazilian format, as the agent writes them. Full conversations are in [`src/examples/`](src/examples/).
 
-**Pré-requisitos:** [uv](https://docs.astral.sh/uv/) (ele instala o Python 3.12) e uma chave de api de ia do google. Ela pode ser obtida gratuitamente no [Google AI Studio](https://aistudio.google.com/apikey).
+## How to run
+
+**Prerequisites:** [uv](https://docs.astral.sh/uv/) (it installs Python 3.12) and a Google AI API key. You can get one for free from [Google AI Studio](https://aistudio.google.com/apikey).
 
 ```bash
 uv sync
-cp .env.example .env      # depois preencha AI_API_KEY no .env
-uv run lira-ingest        # cria a base; baixa cerca de 240 MB do modelo de embeddings na primeira vez
-uv run lira               # conversa no terminal
+cp .env.example .env      # then fill in AI_API_KEY in .env
+uv run lira-ingest        # builds the database; downloads a model of about 240 MB on the first run
+uv run lira               # chat in the terminal
 ```
 
-Modos úteis da CLI:
+Useful CLI modes:
 
 ```bash
-uv run lira --debug              # mostra as ferramentas chamadas e o que retornaram
-uv run lira --thread minha-conversa   # retoma uma conversa depois de fechar
-uv run lira -m "Qual o endereço da loja?"   # uma única mensagem
+uv run lira --debug              # shows the tools called and what they returned
+uv run lira --thread minha-conversa   # resumes a conversation after closing it
+uv run lira -m "Qual o endereço da loja?"   # a single message
 ```
 
-API, o ponto de entrada que um canal como o WhatsApp chamaria:
+The API, the entry point a channel such as WhatsApp would call:
 
 ```bash
 uv run lira-api
@@ -43,345 +47,345 @@ curl -X POST http://127.0.0.1:8000/chat -H "Content-Type: application/json" \
   -d '{"message": "Quanto custa o Takamine GD20?"}'
 ```
 
-A resposta traz `thread_id`; envie-o de volta para continuar a conversa. Em `http://127.0.0.1:8000/docs` está a documentação interativa.
+The response includes `thread_id`; send it back to continue the conversation. Interactive documentation is available at `http://127.0.0.1:8000/docs`.
 
-Também há `docker compose up --build`
+There is also `docker compose up --build`.
 
-### Testes e avaliações
+### Tests and evaluations
 
 ```bash
-uv run pytest                                   # não precisa de chave nem de rede
-uv run python src/evals/run_agent_evals.py      # usa o modelo real, cerca de 110 requisições
-uv run python src/evals/retrieval_benchmark.py  # compara estratégias de busca
+uv run pytest                                   # needs neither a key nor a network
+uv run python src/evals/run_agent_evals.py      # uses the real model, about 110 requests
+uv run python src/evals/retrieval_benchmark.py  # compares search strategies
 ```
 
-### Configuração
+### Configuration
 
-Tudo fica em `.env`; veja [`.env.example`](.env.example). As mais úteis são `LLM_MODEL`, para trocar de modelo, e `REFERENCE_DATETIME`, que fixa o relógio para reproduzir um cenário.
+Everything lives in `.env`; see [`.env.example`](.env.example). The most useful settings are `LLM_MODEL`, to switch models, and `REFERENCE_DATETIME`, which pins the clock to reproduce a scenario.
 
-## Arquitetura
+## Architecture
 
 ```
               ┌──────────────┐
- mensagem ──▶ │ input_guard  │  tamanho, sem LLM
+  message ──▶ │ input_guard  │  size, no LLM
               └──────┬───────┘
                      ▼
-              ┌──────────────┐  chamadas   ┌───────────────────────┐
+              ┌──────────────┐  calls      ┌───────────────────────┐
               │    agent     │ ◀────────▶ │        tools          │
-              │ (Gemini)     │             │ produtos, pedidos,    │
-              └──────┬───────┘             │ políticas, parcelas,  │
-                     ▼                     │ chamados              │
+              │ (Gemini)     │             │ products, orders,     │
+              └──────┬───────┘             │ policies, tickets,    │
+                     ▼                     │ installments          │
               ┌──────────────┐             └───────────┬───────────┘
-              │ output_guard │  valores em R$          │
-              └──────┬───────┘  têm origem?            ▼
-                     │ (regenera 1x)         ┌───────────────────┐
-                     ▼                       │ SQLite: catálogo, │
-              ┌──────────────┐               │ FTS5 e vetores    │
-              │ aviso de     │               └───────────────────┘
-              │ expediente   │
+              │ output_guard │  R$ amounts             │
+              └──────┬───────┘  have a source?         ▼
+                     │ (retries once)        ┌───────────────────┐
+                     ▼                       │ SQLite: catalog,  │
+              ┌──────────────┐               │ FTS5 and vectors  │
+              │ closed-store │               └───────────────────┘
+              │ notice       │
               └──────┬───────┘
                      ▼
-                  resposta
+                  response
 ```
 
-| Ferramenta | Para quê | O que o código garante |
+| Tool | Purpose | What the code guarantees |
 |---|---|---|
-| `buscar_produtos` | Preço, estoque, promoção, recomendação | Filtros rígidos; preço final já calculado; lista só o que pode ser comprado |
-| `detalhar_produtos` | Especificações e comparação | Ignora descrições que contradizem o produto |
-| `resumir_catalogo` | Visão geral, marcas, faixas de preço | Cobre os agregados que justificariam SQL livre |
-| `simular_parcelamento` | Parcelas permitidas | Faixas mínimas da política; recusa valor que ninguém informou |
-| `consultar_pedidos` | Status e rastreio | Verifica identidade, não revela o motivo da falha, limita tentativas |
-| `consultar_politicas` | Trechos do manual | Busca híbrida, com a seção de origem |
-| `registrar_chamado` | Encaminhar à equipe | Protocolo, sem duplicar chamados |
+| `buscar_produtos` | Price, stock, promotions, recommendations | Hard filters; final price already calculated; lists only what can be bought |
+| `detalhar_produtos` | Specifications and comparison | Ignores descriptions that contradict the product |
+| `resumir_catalogo` | Overview, brands, price ranges | Covers the aggregates that would justify free-form SQL |
+| `simular_parcelamento` | Allowed installments | The policy's minimum tiers; refuses an amount nobody provided |
+| `consultar_pedidos` | Status and tracking | Verifies identity, does not reveal why a check failed, limits attempts |
+| `consultar_politicas` | Manual excerpts | Hybrid search, with the source section |
+| `registrar_chamado` | Hand over to the staff | Protocol number, no duplicate tickets |
 
-## Decisões técnicas
+## Technical decisions
 
-Cada decisão abaixo explica o problema, a escolha, o que descartei e o que aceitei perder. Quando há medição, cito o número; quando é julgamento meu, sem medição, digo isso.
+Each decision below explains the problem, the choice, what I ruled out and what I accepted losing. Where there is a measurement, I give the number; where it is my own judgment, unmeasured, I say so.
 
-| Tema | Escolha | Motivo principal |
+| Topic | Choice | Main reason |
 |---|---|---|
-| Arquitetura | Agente único com ferramentas | Os assuntos se misturam na mesma pergunta, e as ferramentas já fazem o roteamento |
-| Tipo de modelo | LLM de fronteira por API, sem modelo local | Escolha de ferramentas confiável, sem exigir GPU, pagando só pelo uso |
-| Modelo | `gemini-3.5-flash-lite` | O mais barato e rápido dos testados, e o trabalho difícil já está no código |
-| Orquestração | LangGraph, com pouco LangChain | Memória, retentativa e ciclo de ferramentas prontos, com o fluxo à vista |
-| Dados da loja | Ferramentas determinísticas, sem SQL livre | O código aplica as regras de preço e status em toda consulta |
-| Armazenamento | SQLite, FTS5 e NumPy | Dados pequenos, um processo só e nenhum servidor para instalar |
-| Políticas | Busca híbrida por seção | Clientes misturam termos exatos e paráfrases |
-| Embeddings | `fastembed` local | Sem rede nem cota; o Gemini mede melhor, mas os evals não falharam por retrieval |
-| Guarda-corpos | Em código, sem LLM extra | Determinísticos, testáveis e sem custo por mensagem |
-| Avaliação | Checagens determinísticas e leitura das respostas | Reprodutível, mas só a leitura encontrou os erros mais sutis |
+| Architecture | Single agent with tools | Topics mix within the same question, and the tools already do the routing |
+| Model type | Frontier LLM through an API, no local model | Reliable tool selection, no GPU required, paying only for usage |
+| Model | `gemini-3.5-flash-lite` | The cheapest and fastest of those tested, and the hard work is already in the code |
+| Orchestration | LangGraph, with little LangChain | Memory, retries and the tool cycle ready-made, with the flow in plain sight |
+| Store data | Deterministic tools, no free-form SQL | The code applies the price and status rules on every query |
+| Storage | SQLite, FTS5 and NumPy | Small data, a single process and no server to install |
+| Policies | Hybrid search by section | Customers mix exact terms and paraphrases |
+| Embeddings | Local `fastembed` | No network or quota; Gemini measures better, but the evals did not fail because of retrieval |
+| Guardrails | In code, no extra LLM | Deterministic, testable and with no per-message cost |
+| Evaluation | Deterministic checks and reading the answers | Reproducible, but only reading found the subtlest errors |
 
-### Agente único com ferramentas, sem multiagente
+### Single agent with tools, no multi-agent
 
-A alternativa natural seria um roteador enviando cada mensagem a um especialista em catálogo, pedidos ou políticas. Ela funciona mal aqui porque os assuntos vêm juntos: "quanto custa e parcela em 12x?" ou "posso devolver o pedido 8?" cruzam domínios na mesma frase e exigiriam re-roteamento. Os especialistas também teriam a mesma persona, as mesmas regras e o mesmo histórico, então a separação duplicaria prompt e somaria chamadas de LLM sem isolar nada de verdade.
+The natural alternative would be a router sending each message to a catalog, orders or policies specialist. It works poorly here because topics come together: "how much is it and can I pay in 12 installments?" or "can I return order 8?" cross domains within one sentence and would require re-routing. The specialists would also share the same persona, the same rules and the same history, so the split would duplicate prompts and add LLM calls without truly isolating anything.
 
-Com um único agente, escolher a ferramenta é o próprio roteamento: a pergunta acima vira duas chamadas em um turno, com 2 a 3 chamadas ao modelo por turno. **O custo aceito** é um prompt único que concentra todas as regras. Se o escopo crescer a ponto de as ferramentas competirem entre si, a separação fica simples, porque cada ferramenta já é independente.
+With a single agent, choosing the tool is the routing itself: the question above becomes two tool calls in one turn, with 2 to 3 model calls per turn. **The accepted cost** is a single prompt holding all the rules. If the scope grows to the point where tools compete with one another, splitting is simple, because each tool is already independent.
 
-### LLM de fronteira por API, sem modelo local
+### Frontier LLM through an API, no local model
 
-O modelo precisa fazer três coisas: entender português informal, escolher a ferramenta certa com argumentos válidos e redigir a resposta sem alterar o que a ferramenta devolveu. A segunda é a mais crítica, porque um erro ali leva o cliente a receber uma informação errada com aparência de certa. Escolhi um modelo por API pelos motivos abaixo:
+The model has to do three things: understand informal Portuguese, choose the right tool with valid arguments, and write the answer without altering what the tool returned. The second is the most critical, because a mistake there gives the customer wrong information that looks right. I chose a model through an API for these reasons:
 
-- **Menor risco técnico para começar:** modelos de fronteira chegam com chamada de ferramentas pronta e bem testada. Um modelo aberto também poderia servir, mas somaria decisões sem relação com o problema da loja: qual modelo, qual quantização, qual servidor e como ele formata as ferramentas.
-- **Qualquer pessoa consegue rodar:** bastam uma chave gratuita e um computador comum. Um modelo local bom o bastante pediria vários GB de download e, para responder rápido, uma GPU; o resultado da PoC passaria a depender da máquina de quem a executa.
-- **Custo proporcional ao uso:** um caso de avaliação custa cerca de US$ 0,004 no plano pago, então 1.000 conversas curtas ficariam em torno de US$ 4. Um servidor com GPU cobra pelo mês inteiro, inclusive de madrugada e com a loja fechada. Só compensaria com um volume muito acima do que uma loja como esta gera.
-- **Foco no que a PoC precisa provar:** a pergunta é se o agente resolve o atendimento, e operar um servidor de modelos é outro projeto.
+- **Lower technical risk to start with:** frontier models come with tool calling ready and well tested. An open model could also work, but it would add decisions unrelated to the store's problem: which model, which quantization, which server and how it formats tools.
+- **Anyone can run it:** a free key and an ordinary computer are enough. A good enough local model would need a download of several GB and, to respond quickly, a GPU; the PoC's result would come to depend on the machine of whoever runs it.
+- **Cost proportional to usage:** an evaluation case costs about US$ 0.004 on the paid plan, so 1,000 short conversations would come to around US$ 4. A GPU server charges for the whole month, including overnight and while the store is closed. It would only pay off at a volume far above what a store like this generates.
+- **Focus on what the PoC needs to prove:** the question is whether the agent handles customer service, and running a model server is another project.
 
-**O custo aceito** tem duas partes. A primeira é depender de um provedor, e isso apareceu nos testes: houve timeouts e erros 503 em outro modelo da mesma família. Por isso há timeout de 30 s, até 3 tentativas apenas em falhas transitórias e uma mensagem amigável quando o provedor segue fora. A segunda é que as mensagens saem da máquina: no free tier, o Google informa que [pode usar o conteúdo para melhorar seus produtos](https://ai.google.dev/gemini-api/docs/pricing). Isso só é aceitável porque os dados são fictícios; em produção, seria obrigatório usar o plano pago, em que esse uso não ocorre.
+**The accepted cost** has two parts. The first is depending on a provider, and this showed up in testing: there were timeouts and 503 errors on another model of the same family. That is why there is a 30 s timeout, up to 3 attempts on transient failures only, and a friendly message when the provider stays down. The second is that messages leave the machine: on the free tier, Google states that it [may use the content to improve its products](https://ai.google.dev/gemini-api/docs/pricing). This is only acceptable because the data is fictional; in production, the paid plan, where this use does not occur, would be mandatory.
 
-Eu reavaliaria um modelo local diante de volume alto ou de uma exigência contratual ou de LGPD que impeça enviar dados a terceiros. A suíte de avaliação torna essa comparação direta. Trocar de modelo Gemini é uma variável; trocar de provedor exige um pacote novo e poucas linhas em `llm.py` e `resilience.py`.
+I would reconsider a local model given high volume, or a contractual or LGPD (Brazil's data protection law) requirement that prevents sending data to third parties. The evaluation suite makes that comparison straightforward. Switching Gemini models is one variable; switching providers takes a new package and a few lines in `llm.py` and `resilience.py`.
 
-### Modelo: `gemini-3.5-flash-lite`
+### Model: `gemini-3.5-flash-lite`
 
-A arquitetura reduz o que se exige do modelo: conta, estoque, identidade e datas estão no código, e ele só precisa escolher ferramentas e redigir. Sendo assim, o critério passa a ser **o modelo mais barato e rápido que dê conta do trabalho**, e não o mais capaz. Velocidade e preço pesam porque cada turno faz de 2 a 3 chamadas, e cada caso de avaliação processa cerca de 11,9 mil tokens de entrada, entre prompt, ferramentas, histórico e retornos. Na média, a entrada responde por 93% do custo.
+The architecture reduces what is asked of the model: math, stock, identity and dates are in the code, and it only has to choose tools and write. That makes the criterion **the cheapest and fastest model that can do the job**, not the most capable one. Speed and price matter because each turn makes 2 to 3 calls, and each evaluation case processes about 11.9 thousand input tokens, across prompt, tools, history and tool results. On average, input accounts for 93% of the cost.
 
-| Modelo | Preço por 1M de tokens (entrada/saída) | Custo estimado por caso* | Mediana por caso* | Limite diário gratuito | Resultado |
+| Model | Price per 1M tokens (input/output) | Estimated cost per case | Median per case | Free daily limit | Result |
 |---|---|---|---|---|---|
-| **`gemini-3.5-flash-lite`** | US$ 0,30 / 2,50 | US$ 0,003 | 2,4 s | 500 requisições | Ver [Qualidade](#qualidade) |
-| `gemini-3.5-flash` (hoje [encaminhado ao 3.6](https://ai.google.dev/gemini-api/docs/whats-new-gemini-3.5)) | US$ 0,75 / 3,75; US$ 1,50 / 7,50 a partir de 2027 | US$ 0,011; US$ 0,021 a partir de 2027 | 7,4 s | 20 requisições | 11 de 11 casos antes de bater no limite |
-| `gemini-3.8-flash` | US$ 0,75 / 3,75; US$ 1,50 / 7,50 a partir de 2027 | Sem dado | Sem dado | 20 requisições | Timeouts de 90 s e erros 503; nenhum dado de qualidade |
+| **`gemini-3.5-flash-lite`** | US$ 0.30 / 2.50 | US$ 0.003 | 2.4 s | 500 requests | See [Quality](#quality) |
+| `gemini-3.5-flash` (currently [routed to 3.6](https://ai.google.dev/gemini-api/docs/whats-new-gemini-3.5)) | US$ 0.75 / 3.75; US$ 1.50 / 7.50 from 2027 | US$ 0.011; US$ 0.021 from 2027 | 7.4 s | 20 requests | 11 of 11 cases before hitting the limit |
+| `gemini-3.8-flash` | US$ 0.75 / 3.75; US$ 1.50 / 7.50 from 2027 | No data | No data | 20 requests | 90 s timeouts and 503 errors; no quality data |
 
-**Nos mesmos cenários, o flash-lite saiu cerca de 3 vezes mais barato e 3 vezes mais rápido que o `gemini-3.5-flash`.** Parte da diferença vem da saída: 144 tokens por caso contra 855, provavelmente por causa do raciocínio interno, que é cobrado como saída. Em um atendimento por mensagens, essas diferenças contam a cada turno, e o raciocínio extra compensa pouco quando as regras difíceis já estão no código.
+**On the same scenarios, flash-lite came out about 3 times cheaper and 3 times faster than `gemini-3.5-flash`.** Part of the difference comes from output: 144 tokens per case versus 855, probably because of internal reasoning, which is billed as output. In a messaging service these differences count on every turn, and the extra reasoning pays off little when the hard rules are already in the code.
 
-A cota gratuita maior veio como vantagem adicional: a suíte de testes faz cerca de 110 chamadas por rodada, então dá para iterar sem pagar.
+The larger free quota came as an added benefit: the test suite makes about 110 calls per run, so it is possible to iterate without paying.
 
-**Há duas ressalvas.** A primeira é que a comparação é parcial: os 11 casos do Flash são quase todos de catálogo, e o limite gratuito impediu rodar a suíte inteira nos modelos maiores. Isso sustenta preço e velocidade, mas **não prova que o flash-lite tem a melhor qualidade**; só mostra que a qualidade dele atende a esta PoC, conforme os resultados em [Qualidade](#qualidade). A segunda é que o preço do Flash deve dobrar em 2027, levando a diferença de custo para cerca de 6 vezes, se nada mudar.
+**There are two caveats.** The first is that the comparison is partial: the 11 Flash cases are almost all catalog cases, and the free limit prevented running the whole suite on the larger models. This supports price and speed, but **does not prove flash-lite has the best quality**; it only shows its quality is sufficient for this PoC, according to the results in [Quality](#quality). The second is that the Flash price is due to double in 2027, taking the cost difference to about 6 times, if nothing changes.
 
-O modelo ignora `temperature` porque usa amostragem fixa, então esse parâmetro não é configurado. Por isso cada caso de avaliação roda duas vezes: o mesmo pedido pode gerar respostas diferentes.
+The model ignores `temperature` because it uses fixed sampling, so that parameter is not set. That is why each evaluation case runs twice: the same request can produce different answers.
 
-### LangGraph com LangChain
+### LangGraph with LangChain
 
-Um loop de chamadas de ferramentas cabe em poucas linhas com o SDK do Gemini, e para um agente sem estado eu usaria exatamente isso. Este precisa de mais:
+A tool-calling loop fits in a few lines with the Gemini SDK, and for a stateless agent that is exactly what I would use. This one needs more:
 
-- voltar ao modelo depois das ferramentas, inclusive com várias chamadas no mesmo turno;
-- passar por um verificador que pode pedir uma nova resposta uma única vez;
-- retomar a conversa depois de fechada;
-- repetir só a chamada ao modelo, só em erro transitório, sem executar as ferramentas de novo.
+- going back to the model after the tools, including several calls in the same turn;
+- passing through a verifier that can ask for a new answer exactly once;
+- resuming the conversation after it was closed;
+- retrying only the model call, only on a transient error, without running the tools again.
 
-Com o SDK puro, eu escreveria e testaria tudo isso à mão. **O LangGraph já traz** `SqliteSaver`, `RetryPolicy` por nó, `ToolNode` e `recursion_limit`, e os guarda-corpos entram como nós comuns. O fluxo inteiro cabe nas 141 linhas de [`graph.py`](src/app/agent/graph.py), lidas de cima a baixo. Usei `StateGraph` em vez de `create_agent`, do LangChain 1.x, que seria mais curto, porque ele esconderia justamente os desvios para o verificador, que são o centro do projeto. Frameworks multiagente, como o CrewAI, resolvem um problema que não existe aqui.
+With the bare SDK, I would write and test all of this by hand. **LangGraph already provides** `SqliteSaver`, per-node `RetryPolicy`, `ToolNode` and `recursion_limit`, and the guardrails come in as ordinary nodes. The whole flow fits in the 141 lines of [`graph.py`](src/app/agent/graph.py), read from top to bottom. I used `StateGraph` rather than LangChain 1.x's `create_agent`, which would be shorter, because it would hide precisely the detours to the verifier, which are the center of the project. Multi-agent frameworks such as CrewAI solve a problem that does not exist here.
 
-**Do LangChain uso apenas o necessário:** `init_chat_model`, o decorador `@tool` e os tipos de mensagem. Eles geram o esquema das ferramentas a partir das funções, deixam a troca de provedor barata e ligam o rastreamento do LangSmith por variável de ambiente. Não uso chains, retrievers nem vector stores: a busca híbrida é código próprio, simples de medir e depurar.
+**From LangChain I use only what is needed:** `init_chat_model`, the `@tool` decorator and the message types. They generate the tool schema from the functions, keep switching providers cheap, and turn on LangSmith tracing through an environment variable. I do not use chains, retrievers or vector stores: the hybrid search is my own code, simple to measure and debug.
 
-**O custo aceito** é uma dependência grande, que muda rápido e às vezes atrapalha. Dois exemplos reais daqui: a resposta do modelo chega em blocos, exigindo `.text` em vez de `.content`, e o cliente embrulha os erros do provedor, então `is_transient` precisa percorrer a cadeia de exceções. O `uv.lock` fixa as versões para que isso não mude sozinho.
+**The accepted cost** is a large dependency that changes fast and sometimes gets in the way. Two real examples from here: the model's response arrives in blocks, requiring `.text` instead of `.content`, and the client wraps provider errors, so `is_transient` has to walk the exception chain. `uv.lock` pins the versions so this does not change on its own.
 
-### Dados estruturados: ferramentas determinísticas, sem SQL livre
+### Structured data: deterministic tools, no free-form SQL
 
-Um `top-k` semântico não responde "violões até R$ 1000", que tem exatamente 12 respostas certas: ele devolveria um número fixo de itens parecidos. Por isso RAG não serve para catálogo, e o caminho são filtros de verdade.
+A semantic `top-k` cannot answer "violões até R$ 1000" (acoustic guitars up to R$ 1000), which has exactly 12 correct answers: it would return a fixed number of similar items. That is why RAG does not fit the catalog, and real filters are the way to go.
 
-Considerei uma ferramenta de SQL "livre" como último recurso e **testei antes de decidir**: em 19 perguntas de estresse, nenhuma falha seria resolvida por SQL. Todas vinham de dados mal normalizados (`steel` contra "aço") ou de semântica. Os únicos ganhos seriam agregados raros, cobertos por `resumir_catalogo` ou compostos a partir de listas, pois os 61 itens disponíveis cabem em cerca de 900 tokens.
+I considered a "free-form" SQL tool as a last resort and **tested before deciding**: across 19 stress questions, no failure would have been solved by SQL. They all came from poorly normalized data (`steel` versus "aço", Portuguese for steel) or from semantics. The only gains would be rare aggregates, covered by `resumir_catalogo` or composed from lists, since the 61 available items fit in about 900 tokens.
 
-Do outro lado, "só em último caso" não é garantível, porque o modelo escolhe pela descrição da ferramenta, e um `SELECT` sem filtro recomendaria um produto descontinuado ou uma promoção expirada. Com ferramentas parametrizadas, essas regras valem em toda consulta. **O custo aceito** é que uma pergunta que nenhuma ferramenta previu não tem resposta; ela vira um chamado, e isso registra a necessidade real. Em [PoC e produção](#poc-e-produção) está o desenho seguro, caso os chamados a confirmem.
+On the other side, "only as a last resort" cannot be guaranteed, because the model chooses from the tool's description, and an unfiltered `SELECT` would recommend a discontinued product or an expired promotion. With parameterized tools, these rules hold on every query. **The accepted cost** is that a question no tool anticipated has no answer; it becomes a ticket, which records the real need. [PoC and production](#poc-and-production) has the safe design, should tickets confirm that need.
 
-### Armazenamento: SQLite + FTS5 + NumPy, deliberadamente para a PoC
+### Storage: SQLite + FTS5 + NumPy, deliberately for the PoC
 
-Os dados são 65 produtos, 25 trechos do manual e algumas tabelas de pedidos, lidos por um único processo. O SQLite cobre isso com um arquivo só e sem instalar nada, pois já vem com o Python:
+The data is 65 products, 25 manual excerpts and a few order tables, read by a single process. SQLite covers this with one file and nothing to install, since it ships with Python:
 
-- **Filtros de verdade:** "até R$ 1000, com cordas de nylon, disponíveis" é uma consulta SQL com junções. Com pandas ou listas em memória, eu reimplementaria parte disso.
-- **Busca textual incluída:** o FTS5 oferece BM25 no mesmo arquivo, sem outro serviço.
-- **Vetores sem índice aproximado:** com tão poucos vetores, a busca com cosseno exato em NumPy leva 6 ms na mediana, incluindo gerar o embedding da pergunta. Um índice aproximado traria complexidade para resolver um problema de escala que não existe.
-- **Recriável:** `lira-ingest` reconstrói `emporio.db` a partir de `data/`. Conversas e chamados ficam em `runtime.db`, então ingerir de novo não apaga atendimentos.
+- **Real filters:** "up to R$ 1000, with nylon strings, available" is a SQL query with joins. With pandas or in-memory lists, I would be reimplementing part of that.
+- **Text search included:** FTS5 provides BM25 in the same file, with no other service.
+- **Vectors with no approximate index:** with so few vectors, exact cosine search in NumPy takes a median of 6 ms, including embedding the question. An approximate index would add complexity to solve a scale problem that does not exist.
+- **Rebuildable:** `lira-ingest` rebuilds `emporio.db` from `data/`. Conversations and tickets live in `runtime.db`, so ingesting again does not erase customer interactions.
 
-Descartei o **Postgres com pgvector** nesta fase porque exigiria um servidor antes da primeira conversa, sem trazer ganho para esse volume. Descartei **Chroma ou FAISS** porque seriam um segundo armazenamento para manter em sincronia e não trazem os filtros relacionais nem o BM25 do FTS5.
+I ruled out **Postgres with pgvector** at this stage because it would require a server before the first conversation, with no gain at this volume. I ruled out **Chroma or FAISS** because they would be a second store to keep in sync and do not bring relational filters or FTS5's BM25.
 
-**Em produção eu usaria Postgres com pgvector.** O SQLite admite um único escritor por vez, não atende bem a várias instâncias da aplicação e seu FTS5 não tem stemming em português, enquanto o Postgres resolve os três pontos e tem backup e operação maduros. A troca fica contida na camada de armazenamento: ferramentas e agente não precisam mudar de contrato.
+**In production I would use Postgres with pgvector.** SQLite allows a single writer at a time, does not serve several application instances well, and its FTS5 has no Portuguese stemming, while Postgres solves all three and has mature backup and operations. The change stays contained in the storage layer: tools and agent do not need to change their contracts.
 
-### Retrieval: híbrido por seção, com medição
+### Retrieval: hybrid by section, with measurement
 
-**Extração:** o PDF vira Markdown com `pdfplumber`, preservando tabelas. Testei o `pdftotext -layout`, e ele separava cada dia do seu horário, o que quebraria a pergunta mais comum da loja. Testes de fidelidade garantem que fatos críticos sobrevivam à extração.
+**Extraction:** the PDF becomes Markdown with `pdfplumber`, preserving tables. I tested `pdftotext -layout`, and it separated each day from its hours, which would break the store's most common question. Fidelity tests ensure that critical facts survive extraction.
 
-**Chunks por seção:** o manual já é dividido em regras numeradas, com uma ideia por subseção, e cada uma virou um trecho, somando 25. Janelas de tamanho fixo poderiam separar uma regra da sua condição, e a seção de origem ajuda o agente a se situar. A busca devolve 4 trechos: incluir um a mais custa poucos tokens, enquanto omitir a regra certa leva a uma resposta errada.
+**Chunks by section:** the manual is already divided into numbered rules, with one idea per subsection, and each became an excerpt, for 25 in total. Fixed-size windows could separate a rule from its condition, and the source section helps the agent get its bearings. The search returns 4 excerpts: including one more costs few tokens, while leaving out the right rule leads to a wrong answer.
 
-**Combinação com RRF:** BM25 e cosseno têm escalas sem relação entre si, e o Reciprocal Rank Fusion evita calibrá-las, pois usa só a posição no ranking. Mantive o `k=60`, o valor usual, sem ajuste fino, para não superajustar a 40 perguntas.
+**Combination with RRF:** BM25 and cosine have unrelated scales, and Reciprocal Rank Fusion avoids calibrating them, since it uses only the position in the ranking. I kept `k=60`, the usual value, with no fine-tuning, so as not to overfit to 40 questions.
 
-Benchmark com 40 perguntas escritas à mão, 4 trechos retornados:
+Benchmark with 40 handwritten questions, 4 excerpts returned:
 
-| Estratégia | Recall@4 | Recall@1 | MRR | Latência mediana |
+| Strategy | Recall@4 | Recall@1 | MRR | Median latency |
 |---|---|---|---|---|
-| BM25 (FTS5) | 0,950 | 0,775 | 0,850 | 1 ms |
-| Vetorial, fastembed | 0,725 | 0,575 | 0,642 | 6 ms |
-| **Híbrido com RRF, fastembed (padrão)** | 0,950 | 0,675 | 0,785 | 8 ms |
-| Vetorial, Gemini Embedding | 0,950 | 0,825 | 0,881 | 477 ms |
-| Híbrido com RRF, Gemini Embedding | 0,975 | 0,775 | 0,869 | 511 ms |
+| BM25 (FTS5) | 0.950 | 0.775 | 0.850 | 1 ms |
+| Vector, fastembed | 0.725 | 0.575 | 0.642 | 6 ms |
+| **Hybrid with RRF, fastembed (default)** | 0.950 | 0.675 | 0.785 | 8 ms |
+| Vector, Gemini Embedding | 0.950 | 0.825 | 0.881 | 477 ms |
+| Hybrid with RRF, Gemini Embedding | 0.975 | 0.775 | 0.869 | 511 ms |
 
-**Só por esse benchmark, o BM25 sozinho venceria o híbrido com fastembed:** mesmo recall, melhor ordenação e nenhum modelo para baixar. Mantive o híbrido por dois motivos. O BM25 erra paráfrases abertas, como "Onde vocês ficam?" e "Comprei pela internet e não gostei, e agora?", que é como clientes de fato escrevem, embora o híbrido erre outras duas perguntas, como "O produto chegou amassado na entrega". E os vetores já são necessários para ordenar recomendações de produtos, como "violão para viagem". Com uma diferença tão pequena em 40 perguntas, a amostra não decide a questão, e um conjunto maior poderia mudar esta escolha.
+**On this benchmark alone, BM25 by itself would beat hybrid with fastembed:** same recall, better ranking and no model to download. I kept hybrid for two reasons. BM25 misses open paraphrases such as "Onde vocês ficam?" (Where are you located?) and "Comprei pela internet e não gostei, e agora?" (I bought online and did not like it, now what?), which is how customers actually write, although hybrid misses two other questions, such as "O produto chegou amassado na entrega" (The product arrived dented). And vectors are already needed to rank product recommendations, such as "violão para viagem" (a guitar for traveling). With such a small difference over 40 questions, the sample does not settle the matter, and a larger set could change this choice.
 
-### Embeddings: `fastembed` local, mesmo com o Gemini medindo melhor
+### Embeddings: local `fastembed`, even with Gemini measuring better
 
-O Gemini Embedding é claramente superior ao modelo local. Mantive o `fastembed` porque a Lira lê os 4 trechos, então a ordenação pesa menos que o recall; porque a diferença é de 1 pergunta em 40 numa amostra pequena; e porque os evals de políticas não falharam por retrieval. Em troca, a busca dispensa rede e cota, leva 8 ms em vez de 511 ms e os testes rodam sem chave.
+Gemini Embedding is clearly better than the local model. I kept `fastembed` because Lira reads all 4 excerpts, so ranking matters less than recall; because the difference is 1 question in 40 on a small sample; and because the policy evals did not fail because of retrieval. In exchange, search needs no network or quota, takes 8 ms instead of 511 ms, and the tests run without a key.
 
-Entre as opções locais, o `fastembed` usa ONNX e dispensa o PyTorch, que seria uma dependência pesada para só gerar embeddings em CPU. O modelo `paraphrase-multilingual-MiniLM-L12-v2` tem suporte a português, mas **trunca em 128 tokens**, o que afeta os chunks maiores; o BM25 cobre o texto inteiro. Trocar custa uma variável: `EMBEDDINGS_PROVIDER=gemini`, seguida de `lira-ingest`.
+Among local options, `fastembed` uses ONNX and does not need PyTorch, which would be a heavy dependency just to generate embeddings on CPU. The `paraphrase-multilingual-MiniLM-L12-v2` model supports Portuguese but **truncates at 128 tokens**, which affects the larger chunks; BM25 covers the entire text. Switching costs one variable: `EMBEDDINGS_PROVIDER=gemini`, followed by `lira-ingest`.
 
-### Semântica só ordena, nunca decide o que existe
+### Semantics only ranks, it never decides what exists
 
-Previ um limiar de similaridade para "saxofone" retornar vazio, e **a medição derrubou a ideia**: "trompete" (0,54) pontua acima de "baixo para banda" (0,37), e "qual a capital da França" (0,37) acima de "aceita pix?" (0,19). Nenhum corte separa os casos. Dizer que a loja tem um produto que não existe é pior que não recomendar nada, então a existência vem de critérios rígidos: categoria, modelo com busca aproximada no nome ou palavra literal no texto. A semântica só ordena o que já passou por eles.
+I expected a similarity threshold to make "saxofone" return nothing, and **measurement killed the idea**: "trompete" (trumpet, 0.54) scores above "baixo para banda" (bass for a band, 0.37), and "qual a capital da França" (what is the capital of France, 0.37) above "aceita pix?" (do you take PIX?, 0.19). No cutoff separates the cases. Saying the store has a product that does not exist is worse than recommending nothing, so existence comes from hard criteria: category, model with fuzzy name matching, or a literal word in the text. Semantics only ranks what has already passed them.
 
-### Prompts modulares em XML, gerados com avaliação
+### Modular XML prompts, generated with evaluation
 
-O prompt da Lira fica em cinco arquivos XML em [`src/prompts/`](src/prompts/), separados por responsabilidade: persona, escopo, regras de atendimento, uso de ferramentas e formato de saída. A divisão torna cada mudança fácil de revisar em um diff, e as tags separam com clareza as regras dos dados. Regras críticas aparecem no início e no fim, por causa da tendência do Gemini de perder instruções no meio de contextos longos. O bloco com data e hora vem por último, para manter o restante estável.
+Lira's prompt lives in five XML files in [`src/prompts/`](src/prompts/), split by responsibility: persona, scope, service rules, tool use and output format. The split makes each change easy to review in a diff, and the tags clearly separate rules from data. Critical rules appear at the beginning and the end, because of Gemini's tendency to lose instructions in the middle of long contexts. The date and time block comes last, to keep the rest stable.
 
-A persona se chama Lira por remeter à música, fala como "um amigo que entende de música" e **sempre se declara assistente virtual**, porque o cliente tem o direito de saber com quem fala. O prompt fica em português porque essa é a língua da conversa, o que evita o modelo traduzir regras e termos da loja.
+The persona is called Lira because the name evokes music (a lyre), speaks like "um amigo que entende de música" (a friend who knows music) and **always declares herself a virtual assistant**, because customers have the right to know who they are talking to. The prompt is in Portuguese because that is the language of the conversation, which keeps the model from translating store rules and terms.
 
-A lição mais útil veio dos testes: **regras negativas funcionaram mal neste modelo, e exemplos concretos funcionaram bem.** "Não prometa prioridade" não impediu promessas; um exemplo de resposta correta reduziu o problema, embora ele ainda reapareça, como mostra [Qualidade](#qualidade). Quando nem isso bastou, a regra foi para o código.
+The most useful lesson came from testing: **negative rules worked poorly on this model, and concrete examples worked well.** "Não prometa prioridade" (do not promise priority) did not stop the promises; an example of a correct answer reduced the problem, although it still reappears, as [Quality](#quality) shows. When even that was not enough, the rule moved into the code.
 
-### Guarda-corpos em código, sem LLM extra
+### Guardrails in code, no extra LLM
 
-Um segundo LLM auditando cada mensagem somaria custo e latência a todo turno e também poderia errar. Preferi cobrir com código o que dá para verificar deterministicamente, porque uma regra em código não depende de o modelo obedecer:
+A second LLM auditing each message would add cost and latency to every turn and could also make mistakes. I preferred to cover with code what can be verified deterministically, because a rule in code does not depend on the model obeying it:
 
-- **Valores:** o manual avisa que informação incorreta "pode configurar propaganda enganosa", então dinheiro recebeu a proteção mais forte. Todo R$ da resposta precisa constar em um retorno de ferramenta ou na fala do cliente. Senão, a resposta é descartada e regenerada uma vez; persistindo, sai uma resposta segura e fixa. A política é **fail-closed**, porque não informar um preço custa menos ao cliente e à loja do que informar um preço errado.
-- **Injeção:** conteúdo do cliente e das ferramentas é tratado como dado. Mais importante que isso, as ferramentas não expõem dados de terceiros, então uma instrução maliciosa não tem o que extrair, mesmo que convença o modelo.
-- **Entrada e expediente:** o limite de 2.000 caracteres barra mensagens abusivas sem gastar uma chamada, e o aviso de loja fechada é aplicado em código, porque o modelo o omitia mesmo com a regra no prompt.
+- **Amounts:** the manual warns that incorrect information "may constitute misleading advertising", so money got the strongest protection. Every R$ amount in the answer must appear in a tool result or in the customer's message. Otherwise, the answer is discarded and regenerated once; if the problem persists, a fixed safe answer goes out. The policy is **fail-closed**, because not giving a price costs the customer and the store less than giving a wrong one.
+- **Injection:** content from the customer and from tools is treated as data. More importantly, the tools do not expose third-party data, so a malicious instruction has nothing to extract, even if it convinces the model.
+- **Input and business hours:** the 2,000-character limit stops abusive messages without spending a call, and the closed-store notice is applied in code, because the model omitted it even with the rule in the prompt.
 
-**O custo aceito** é que o código só cobre o que é verificável com precisão: uma condição inventada em texto passa, e essa é a principal limitação declarada abaixo. Para produção, a proposta está em [PoC e produção](#poc-e-produção).
+**The accepted cost** is that the code only covers what can be verified precisely: an invented condition in text gets through, and this is the main limitation stated below. For production, the proposal is in [PoC and production](#poc-and-production).
 
-### Identidade: telefone mais pedido ou e-mail, verificados na ferramenta
+### Identity: phone plus order or email, verified in the tool
 
-Dados de pedido são pessoais, então a verificação fica dentro de `consultar_pedidos`, onde nenhuma instrução ao modelo consegue pulá-la. O telefone é o fator principal porque é único, enquanto dois clientes dividem o mesmo e-mail. O segundo fator existe porque um telefone sozinho é fácil de obter. Falhas devolvem sempre o mesmo erro genérico, para não revelar qual dado estava certo, e três tentativas erradas bloqueiam a consulta naquela conversa.
+Order data is personal, so verification sits inside `consultar_pedidos`, where no instruction to the model can skip it. The phone is the main factor because it is unique, whereas two customers share the same email. The second factor exists because a phone number alone is easy to obtain. Failures always return the same generic error, so as not to reveal which piece of data was right, and three wrong attempts block lookups in that conversation.
 
-### Memória: checkpointer em SQLite, com janela
+### Memory: SQLite checkpointer, with a window
 
-O cliente pode fechar e retomar a conversa, como acontece em um canal de mensagens, então memória em processo não bastaria. O `SqliteSaver` persiste cada passo sem servidor adicional.
+Customers can close and resume a conversation, as happens on a messaging channel, so in-process memory would not be enough. `SqliteSaver` persists each step with no additional server.
 
-O modelo recebe só os 12 turnos mais recentes, cortados sempre no início de um turno, o que nunca separa uma chamada de ferramenta do seu resultado. O número 12 é julgamento meu, não medição: cobre atendimentos longos e impede o custo de crescer sem limite. Não há sumarização, porque atendimentos são curtos, e resumir custaria LLM e arriscaria perder telefone e número do pedido.
+The model receives only the 12 most recent turns, always cut at the start of a turn, which never separates a tool call from its result. The number 12 is my judgment, not a measurement: it covers long interactions and stops cost from growing without limit. There is no summarization, because interactions are short, and summarizing would cost LLM calls and risk losing the phone and order number.
 
-### Interface: CLI e API finas, sem streaming de tokens
+### Interface: thin CLI and API, no token streaming
 
-Ambas são camadas sobre o mesmo `ChatService`: a CLI serve para demonstrar e depurar, com `--debug`, e a API é o ponto que um canal real chamaria. A CLI mostra o progresso das ferramentas em tempo real, mas o texto só aparece depois de aprovado, porque transmitir tokens mostraria ao cliente uma resposta que o verificador ainda pode descartar. Com respostas em poucos segundos, o ganho do streaming não compensa esse risco.
+Both are layers over the same `ChatService`: the CLI is for demonstrating and debugging, with `--debug`, and the API is the point a real channel would call. The CLI shows tool progress in real time, but the text only appears after approval, because streaming tokens would show the customer an answer the verifier may still discard. With answers in a few seconds, the gain from streaming does not make up for that risk.
 
-### Avaliação: checagens determinísticas, sem LLM como juiz
+### Evaluation: deterministic checks, no LLM as judge
 
-Cada caso de avaliação verifica ferramentas usadas, fatos obrigatórios e termos proibidos. Um LLM juiz avaliaria nuance melhor, mas gastaria cota, variaria entre rodadas e poderia errar do mesmo jeito que o agente. Checagens por texto são reprodutíveis e, quando falham, mostram exatamente o motivo.
+Each evaluation case checks tools used, required facts and forbidden terms. An LLM judge would assess nuance better, but it would spend quota, vary between runs and could make the same mistakes as the agent. Text checks are reproducible and, when they fail, show exactly why.
 
-**O custo aceito** é que elas às vezes reprovam uma resposta aceitável ou aprovam uma resposta ruim. Por isso as respostas também são lidas manualmente, e foi assim que surgiram os erros mais sutis, listados em [Qualidade](#qualidade).
+**The accepted cost** is that they sometimes fail an acceptable answer or pass a bad one. That is why answers are also read manually, which is how the subtlest errors surfaced, as listed in [Quality](#quality).
 
-### Ambiente e bibliotecas de apoio
+### Environment and supporting libraries
 
-| Escolha | Por quê | Alternativa descartada |
+| Choice | Why | Alternative ruled out |
 |---|---|---|
-| Python 3.12 | Versão madura, com pacotes prontos para as dependências nativas (`onnxruntime`, `numpy`) | Versões mais novas, com maior risco de faltar pacote pronto |
-| `uv` | Instala o próprio Python e fixa as versões em um lockfile, então a instalação é reproduzível em poucos comandos | `pip` com `requirements.txt`, sem lockfile completo |
-| `pydantic-settings` | Configuração tipada e validada ao iniciar, em um lugar só | `os.environ` espalhado pelo código |
-| `rapidfuzz` | Encontra "GD 20" e erros de digitação em nomes de modelos sem outro serviço | Exigir o nome exato do produto |
-| FastAPI | Validação de entrada e documentação em `/docs` com muito pouco código | Flask, que exigiria validação e documentação à parte |
-| Rich | Uma CLI legível, que mostra o que o agente está fazendo | `print` simples, pior para demonstrar |
-| Docker opcional | Quem usa `uv` não precisa dele, e quem prefere contêiner tem a opção | Docker obrigatório, um atrito sem ganho para uma PoC com SQLite |
+| Python 3.12 | Mature version, with prebuilt packages for the native dependencies (`onnxruntime`, `numpy`) | Newer versions, with a higher risk of missing prebuilt packages |
+| `uv` | Installs Python itself and pins versions in a lockfile, so installation is reproducible in a few commands | `pip` with `requirements.txt`, without a complete lockfile |
+| `pydantic-settings` | Typed configuration validated at startup, in one place | `os.environ` scattered across the code |
+| `rapidfuzz` | Finds "GD 20" and typos in model names with no other service | Requiring the exact product name |
+| FastAPI | Input validation and documentation at `/docs` with very little code | Flask, which would need separate validation and documentation |
+| Rich | A readable CLI that shows what the agent is doing | Plain `print`, worse for demonstrating |
+| Optional Docker | `uv` users do not need it, and those who prefer a container have the option | Mandatory Docker, friction with no gain for a PoC using SQLite |
 
-## Tratamento dos dados
+## Data handling
 
-Inspecionar os dados revelou problemas que levariam o agente a errar:
+Inspecting the data revealed problems that would have led the agent into mistakes:
 
-| Achado | Tratamento |
+| Finding | Handling |
 |---|---|
-| Sem coluna de marca; separar o nome gerava "Bateria", "Teclado" e "Music" | Marca reconhecida por uma lista, com erro explícito se surgir uma nova |
-| Especificações em inglês e mistas: `steel`, `Black` e `Preto` | Normalizadas na ingestão |
-| Em `strings`, guitarras têm a contagem e violões o material | Separado em `string_type` e `string_count` |
-| **Descrições que contradizem o produto:** o Korg Synth 1 Pro se diz "Roland, 88 teclas", mas tem 61 | Seis descrições que citam outra marca ficam fora da busca e não chegam ao agente; nome e especificações valem |
-| Produto ativo sem estoque, descontinuado com estoque e "em breve" com vendas | Status vence estoque; só ativo com estoque é vendável |
-| Só 4 de 25 promoções ativas, com produtos repetidos | Só ativas contam, com validação de no máximo uma por produto |
-| Pedidos 3 e 20 com total diferente da soma dos itens | Vale o total registrado |
-| Dois clientes com o mesmo e-mail | Telefone é o fator de identidade |
-| Categorias sem produtos, e "mais de 300 instrumentos" no manual contra 65 no CSV | O agente diz "não encontrei no sistema", nunca "não vendemos" |
-| A palavra "cordas": acessório, violão de 7 cordas e cordas orquestrais | Distinção explícita no prompt e nos testes |
+| No brand column; splitting the name produced "Bateria" (drums), "Teclado" (keyboard) and "Music" | Brand recognized from a list, with an explicit error if a new one appears |
+| Specifications in English and mixed: `steel`, `Black` and `Preto` (black) | Normalized at ingestion |
+| In `strings`, electric guitars have the count and acoustic guitars the material | Split into `string_type` and `string_count` |
+| **Descriptions that contradict the product:** the Korg Synth 1 Pro describes itself as "Roland, 88 keys", but has 61 | Six descriptions citing another brand stay out of search and never reach the agent; name and specifications prevail |
+| Active product out of stock, discontinued with stock and "coming soon" with sales | Status beats stock; only active with stock can be sold |
+| Only 4 of 25 promotions active, with repeated products | Only active ones count, with validation of at most one per product |
+| Orders 3 and 20 with a total different from the sum of the items | The recorded total prevails |
+| Two customers with the same email | Phone is the identity factor |
+| Categories with no products, and "more than 300 instruments" in the manual versus 65 in the CSV | The agent says "não encontrei no sistema" (I did not find it in the system), never "não vendemos" (we do not sell it) |
+| The word "cordas" (strings): accessory, 7-string guitar and orchestral strings | Explicit distinction in the prompt and in the tests |
 
-## Suposições
+## Assumptions
 
-Pontos ambíguos do manual, resolvidos pelo critério de que o específico vence o geral:
+Ambiguous points in the manual, resolved by the criterion that the specific beats the general:
 
-- **Contatos:** (67) 3341-4444 é o telefone geral e (67) 3321-4500 o WhatsApp, pois a seção 7 é específica; e-mail sem acento, como na capa.
-- **Parcelas:** as faixas da seção 3.1 valem sobre a tabela da seção 3; "exceto abaixo de R$ 50,00" é lido como parcela mínima de R$ 50,00 até 3x.
-- **Frete de exatamente R$ 500,00:** não coberto; o agente orienta confirmar com a equipe, sem prometer frete grátis.
-- **Arrependimento:** vale para compras online, e os pedidos não registram o canal, então o agente pergunta.
-- **Prazos de entrega:** não há data real de recebimento; a previsão serve de aproximação, sempre com ressalva.
-- **Lojas parceiras:** o manual pede para sugerir, mas não cita nenhuma; o agente não inventa.
-- **Preço de produto descontinuado ou "em breve":** não é exibido, para não soar como oferta.
-- **Data atual:** usa o relógio real em `America/Campo_Grande`. Como os pedidos vão até março de 2026, entregas aparecem muito atrasadas; `REFERENCE_DATETIME` fixa o relógio em testes e exemplos.
+- **Contacts:** (67) 3341-4444 is the general phone and (67) 3321-4500 is WhatsApp, as section 7 is specific; email without an accent, as on the cover.
+- **Installments:** the tiers in section 3.1 prevail over the table in section 3; "exceto abaixo de R$ 50,00" (except below R$ 50,00) is read as a minimum installment of R$ 50,00 for up to 3 installments.
+- **Shipping at exactly R$ 500,00:** not covered; the agent advises confirming with the staff, without promising free shipping.
+- **Right of withdrawal:** applies to online purchases, and orders do not record the channel, so the agent asks.
+- **Delivery times:** there is no actual delivery date; the estimate serves as an approximation, always with a caveat.
+- **Partner stores:** the manual says to suggest them but names none; the agent does not invent any.
+- **Price of a discontinued or "coming soon" product:** not displayed, so it does not read as an offer.
+- **Current date:** uses the real clock in `America/Campo_Grande`. Since orders go up to March 2026, deliveries appear very late; `REFERENCE_DATETIME` pins the clock in tests and examples.
 
-## Qualidade
+## Quality
 
-| Camada | O que cobre | Resultado |
+| Layer | What it covers | Result |
 |---|---|---|
-| Testes (`pytest`) | Dados, regras, ferramentas, grafo, guardas, memória e API, sem rede | 319 passando |
-| Evals com o modelo real | Ferramenta correta, fatos obrigatórios e proibidos, em 51 cenários, duas rodadas | 100 de 102 execuções aprovadas |
-| Benchmark de retrieval | Tabela acima | Recall@4 de 0,950 |
+| Tests (`pytest`) | Data, rules, tools, graph, guards, memory and API, with no network | 319 passing |
+| Evals with the real model | Correct tool, required and forbidden facts, across 51 scenarios, two runs | 100 of 102 executions passed |
+| Retrieval benchmark | Table above | Recall@4 of 0.950 |
 
-| Categoria | Aprovadas |
+| Category | Passed |
 |---|---|
-| Catálogo | 34 de 34 |
-| Parcelamento | 8 de 8 |
-| Políticas | 22 de 22 |
-| Pedidos | 16 de 16 |
-| Escopo | 4 de 4 |
-| Segurança | 10 de 10 |
-| Atendimento | 6 de 8 |
+| Catalog | 34 of 34 |
+| Installments | 8 of 8 |
+| Policies | 22 of 22 |
+| Orders | 16 of 16 |
+| Scope | 4 of 4 |
+| Security | 10 of 10 |
+| Customer service | 6 of 8 |
 
-A rodada não teve erros de provedor, fez 222 chamadas ao modelo e ficou com mediana de 2,6 s por caso; a execução mais lenta levou 31 s. Os resultados completos, com todas as respostas, estão em [`src/evals/results/`](src/evals/results/).
+The run had no provider errors, made 222 model calls and had a median of 2.6 s per case; the slowest execution took 31 s. Full results, with every answer, are in [`src/evals/results/`](src/evals/results/).
 
-**A falha desta rodada é real e continua aberta:** em `handoff_complaint` (2 de 2 execuções), a Lira abre o chamado e informa protocolo e prazo certos, mas promete cuidar do caso "com prioridade", o que a loja não oferece. A regra e o exemplo no prompt reduziram o problema sem eliminá-lo. A próxima tentativa seria tratar isso no retorno de `registrar_chamado`, como foi feito com o PIX.
+**This run's failure is real and remains open:** in `handoff_complaint` (2 of 2 executions), Lira opens the ticket and gives the correct protocol number and deadline, but promises to handle the case "com prioridade" (with priority), which the store does not offer. The rule and the example in the prompt reduced the problem without eliminating it. The next attempt would be to handle it in the return value of `registrar_chamado`, as was done for PIX.
 
-**O resultado varia entre rodadas, porque o modelo não é determinístico.** A rodada anterior, com o código quase igual, deu 98 de 100 e falhou em outros dois casos, que passaram nesta:
+**The result varies between runs, because the model is not deterministic.** The previous run, with nearly the same code, scored 98 of 100 and failed two other cases, which passed in this one:
 
-- `orders_withdrawal_applied_to_a_real_order`: com telefone e pedido na mensagem, a Lira citou só a política, não consultou o pedido e ofereceu registrar a devolução, sem notar que o prazo provavelmente já tinha passado. É a falha mais séria observada, porque o cliente sai com uma expectativa errada.
-- `policy_withdrawal_right`: a Lira perguntou se a compra foi online antes de citar os 7 dias. Mantive a checagem estrita, mas considero esse comportamento aceitável, porque o direito depende do canal.
+- `orders_withdrawal_applied_to_a_real_order`: with phone and order in the message, Lira cited only the policy, did not look up the order and offered to register the return, without noticing that the deadline had probably passed. This is the most serious failure observed, because the customer leaves with a wrong expectation.
+- `policy_withdrawal_right`: Lira asked whether the purchase was online before citing the 7 days. I kept the strict check, but I consider this behavior acceptable, because the right depends on the channel.
 
-Por isso, leia esses números como a ordem de grandeza de uma amostra pequena, sem tratá-los como uma taxa de acerto estável.
+So read these numbers as the order of magnitude of a small sample, not as a stable accuracy rate.
 
-**Os números sozinhos enganam, e isso foi a principal lição de engenharia aqui.** Rodadas com 100% de aprovação escondiam erros reais, que só apareceram lendo as respostas. Cada um virou uma correção e um teste:
+**The numbers alone are misleading, and this was the main engineering lesson here.** Runs with 100% approval hid real errors that only surfaced by reading the answers. Each one became a fix and a test:
 
-| Erro observado com o modelo real | Causa | Correção |
+| Error observed with the real model | Cause | Fix |
 |---|---|---|
-| "10x de R$ 249,00" para um produto de R$ 2.199,00 | Modelo chamou as parcelas junto com a busca e **inventou o valor**; o verificador aceitou, pois vinha de uma ferramenta | Ferramenta recusa valor que ninguém informou |
-| "Temos trompetes e trombones" | Resultado vazio incentivou preencher com conhecimento geral | Busca vazia devolve as categorias que têm produtos |
-| "Previsão 25/02", sendo 28/02 | Modelo errou ao converter a data | Datas saem prontas da ferramenta |
-| "Anotei seu telefone", sem ter anotado | Chamado existente ignorava o contato novo | Contato passa a ser gravado |
-| "Não fazemos reservas", regra que não existe | Nenhum caso cobria o assunto. Depois, o caso novo aprovava a resposta errada numa rodada de 100 de 100, porque a checagem não reconhecia a frase | Ferramenta orienta consultar a política e traz uma frase-modelo para o que o manual não cobre; checagem endurecida; 7 perguntas manuais sobre assuntos fora do manual responderam certo |
-| "R$ 417,24 no PIX" para um produto em promoção | Depois de ver um preço com PIX na conversa, o modelo copiou o formato e fez a conta. O verificador barrou o valor, mas às vezes o cliente ficava sem preço, e os evals de um turno não mostravam isso | Retorno da ferramenta declara que o PIX não se aplica; caso novo com dois turnos nos evals |
-| Aviso de loja fechada omitido | Regra no prompt não era obedecida | Aviso aplicado em código |
+| "10x de R$ 249,00" (10 installments of R$ 249,00) for a R$ 2.199,00 product | The model called installments together with the search and **made up the amount**; the verifier accepted it, since it came from a tool | The tool refuses an amount nobody provided |
+| "Temos trompetes e trombones" (We have trumpets and trombones) | An empty result encouraged filling in from general knowledge | An empty search returns the categories that have products |
+| "Previsão 25/02" (estimated 25/02), when it was 28/02 | The model made a mistake converting the date | Dates come ready-made from the tool |
+| "Anotei seu telefone" (I noted your phone), without having noted it | An existing ticket ignored the new contact | The contact is now saved |
+| "Não fazemos reservas" (We do not take reservations), a rule that does not exist | No case covered the subject. Later, the new case passed the wrong answer in a 100-of-100 run, because the check did not recognize the phrase | The tool advises consulting the policy and brings a template sentence for what the manual does not cover; check hardened; 7 manual questions on subjects outside the manual were answered correctly |
+| "R$ 417,24 no PIX" for a product on promotion | After seeing a PIX price in the conversation, the model copied the format and did the math. The verifier blocked the amount, but the customer sometimes got no price, and single-turn evals did not show this | The tool's return states that PIX does not apply; new two-turn case in the evals |
+| Closed-store notice omitted | The rule in the prompt was not followed | Notice applied in code |
 
-## Limitações conhecidas
+## Known limitations
 
-- **Condições inventadas sobre políticas:** o verificador em código só cobre valores em R$. Uma condição falsa em texto, como "após passar pela nossa análise", depende do prompt. Em uma rodada anterior, a Lira também disse que um pedido confirmado "está em preparação para envio", algo que o sistema não informa, e na publicada escreveu uma vez "entregue em 17/02" para o que é só a previsão. É o maior risco residual.
-- **Oferece o que não consegue fazer:** não há ferramenta de compra nem de cálculo de frete, mas às vezes ela oferece "fechar o pedido", "garantir o seu" ou o valor do frete para um CEP. Se o cliente aceita a compra, é orientado a ir à loja ou usar os contatos dela.
-- **Ausência de regra lida como negativa:** quando o manual não trata de um assunto, como reservas, agora ela diz que não tem a informação. Isso depende de o modelo seguir o aviso da ferramenta, sem garantia em código.
-- **Resposta fixa quando o verificador barra duas vezes:** se o modelo insiste em um valor sem origem, o cliente recebe a resposta segura e fica sem o preço, mas não recebe um errado.
-- **Erros de ortografia ocasionais** do modelo, como "registreia".
-- **Identidade por dados conhecidos:** telefone mais número do pedido é um controle fraco, adequado só a uma PoC.
-- **Limite de tentativas por conversa:** abrir outra conversa zera a contagem.
-- **Feriados:** não há calendário, então o aviso de expediente os ignora.
-- **Sem autenticação na API**, e o histórico guarda dados pessoais sem política de retenção.
-- **Conjuntos de teste pequenos e escritos à mão:** bons para regressão, insuficientes para afirmar taxas de acerto em produção.
-- **Cota:** o free tier limita 15 requisições por minuto e 500 por dia, por projeto, renovando à meia-noite do horário do Pacífico. Acima disso, o cliente recebe a mensagem de indisponibilidade, e rodadas repetidas de avaliação esgotam o limite diário.
-- **Dados no free tier:** o Google informa que pode usar o conteúdo enviado nesse plano para melhorar seus produtos. Aqui os dados são fictícios; com clientes reais, seria preciso usar o plano pago.
+- **Invented conditions on policies:** the code verifier only covers R$ amounts. A false condition in text, such as "após passar pela nossa análise" (after going through our review), depends on the prompt. In an earlier run, Lira also said a confirmed order "está em preparação para envio" (is being prepared for shipping), something the system does not report, and in the published run she once wrote "entregue em 17/02" (delivered on 17/02) for what is only the estimate. This is the largest residual risk.
+- **Offers what it cannot do:** there is no purchase or shipping-calculation tool, but she sometimes offers "fechar o pedido" (to place the order), "garantir o seu" (to secure yours) or the shipping cost for a CEP (Brazilian postal code). If the customer accepts the purchase, they are directed to the store or its contacts.
+- **Absence of a rule read as a negative:** when the manual does not cover a subject, such as reservations, she now says she does not have the information. This depends on the model following the tool's notice, with no guarantee in code.
+- **Fixed answer when the verifier blocks twice:** if the model insists on an amount with no source, the customer receives the safe answer and gets no price, but does not get a wrong one.
+- **Occasional spelling mistakes** from the model, such as "registreia".
+- **Identity based on known data:** phone plus order number is a weak control, suitable only for a PoC.
+- **Attempt limit per conversation:** opening another conversation resets the count.
+- **Holidays:** there is no calendar, so the business hours notice ignores them.
+- **No authentication on the API**, and the history stores personal data with no retention policy.
+- **Small, handwritten test sets:** good for regression, insufficient to claim accuracy rates in production.
+- **Quota:** the free tier allows 15 requests per minute and 500 per day, per project, renewing at midnight Pacific time. Beyond that, the customer receives the unavailability message, and repeated evaluation runs exhaust the daily limit.
+- **Data on the free tier:** Google states it may use content sent on this plan to improve its products. Here the data is fictional; with real customers, the paid plan would be required.
 
-## PoC e produção
+## PoC and production
 
-O que eu mudaria com mais tempo ou em produção:
+What I would change with more time or in production:
 
-- **Banco:** Postgres com pgvector no lugar do SQLite, inclusive para checkpoints e chamados.
-- **Canal:** no WhatsApp, o número do remetente preencheria o telefone automaticamente, ainda editável, já que a pessoa pode consultar uma compra feita para um parente. O segundo fator continuaria obrigatório.
-- **Gatekeeper dedicado:** um classificador binário antes do agente, com um prompt especializado nas regras de bloqueio e saída 0 ou 1. Eu avaliaria primeiro o [Jev](https://techcrunch.com/2026/09/18/a-new-kind-of-ai-model-from-a-chatgpt-inventor-is-thrilling-developers/), da TypeSafe AI, um modelo de decisão não generativo que devolve escolhas tipadas com probabilidade, cujo caso ideal é justamente classificar entre poucas classes. A fabricante declara até 200x mais velocidade e 400x menos custo que LLMs. Relatos independentes são mistos, inclusive um teste com menor acurácia que um LLM pequeno. Por isso, a adoção dependeria de um benchmark com um conjunto adversarial próprio, e os controles em código continuariam ativos.
-- **Verificação de condições:** um auditor de saída para cobrir o maior risco residual, além dos valores em R$.
-- **SQL de catálogo, se os chamados mostrarem necessidade:** banco separado e sem dados pessoais, `set_authorizer`, limite de linhas e tempo, e views que já apliquem as regras de status e promoção.
-- **Chamados:** integração com CRM no lugar da tabela local.
-- **Observabilidade:** o rastreamento do LangSmith já funciona por variável de ambiente; faltam métricas de conversa e alertas.
-- **Embeddings:** reavaliar o Gemini Embedding com um conjunto maior, e testar reranking.
+- **Database:** Postgres with pgvector instead of SQLite, including for checkpoints and tickets.
+- **Channel:** on WhatsApp, the sender's number would fill in the phone automatically, still editable, since the person may be looking up a purchase made for a relative. The second factor would remain mandatory.
+- **Dedicated gatekeeper:** a binary classifier ahead of the agent, with a prompt specialized in the blocking rules and an output of 0 or 1. I would first evaluate [Jev](https://techcrunch.com/2026/09/18/a-new-kind-of-ai-model-from-a-chatgpt-inventor-is-thrilling-developers/), from TypeSafe AI, a non-generative decision model that returns typed choices with probabilities, whose ideal use case is precisely classifying among few classes. The manufacturer claims up to 200x more speed and 400x lower cost than LLMs. Independent reports are mixed, including one test with lower accuracy than a small LLM. So adoption would depend on a benchmark with an adversarial set of my own, and the controls in code would stay active.
+- **Condition checking:** an output auditor to cover the largest residual risk, beyond R$ amounts.
+- **Catalog SQL, if tickets show the need:** a separate database with no personal data, `set_authorizer`, row and time limits, and views that already apply the status and promotion rules.
+- **Tickets:** CRM integration instead of the local table.
+- **Observability:** LangSmith tracing already works through an environment variable; conversation metrics and alerts are missing.
+- **Embeddings:** reassess Gemini Embedding with a larger set, and test reranking.
 
-## Uso de assistentes de código
+## Use of coding assistants
 
-Usei o **Claude Code** como assistente de programação durante o projeto, sempre decidindo a arquitetura e tomando todas as decisões. O fluxo foi:
+I used **Claude Code** as a programming assistant during the project, always deciding the architecture and making all the decisions. The workflow was:
 
-1. **Planejamento:** antes de qualquer código, analisei os requisitos e os dados, e tomei logo de inicio as decisões mais relevantes, como arquitetura, modelo, armazenamento, regras de negócio...
-2. **Decisões humanas que mudaram o rumo:** pensei em uma ferramenta de SQL como último recurso e pedi uma análise crítica de sua necessidade, o que levou ao teste que a descartou. Também troquei o modelo recomendado pelo `gemini-3.5-flash-lite`, por já ter utilizado diversos modelos em produção e já ter a noção de que essa é uma das opções mais baratas e rápidas, condicionando a escolha a um teste com dados reais da loja.
-3. **Prompts:** gerados com uma skill propria, um pipeline de engenharia de prompts com pontuação em 12 dimensões. Revisei cada versão do prompt principal e fiz alguns ajustes finos.
-4. **Implementação:** o assistente escreveu a maior parte do código e testes, com minha revisão e validação acontecendo a cada etapa.
-5. **Verificação:** o mais valioso foi ler as respostas reais do agente, além das métricas. Os erros da tabela em [Qualidade](#qualidade) só foram encontrados assim.
+1. **Planning:** before any code, I analyzed the requirements and the data, and made the most relevant decisions right from the start, such as architecture, model, storage and business rules.
+2. **Human decisions that changed course:** I considered a SQL tool as a last resort and asked for a critical analysis of whether it was needed, which led to the test that ruled it out. I also replaced the recommended model with `gemini-3.5-flash-lite`, because I have used many models in production and already knew this is one of the cheapest and fastest options, making the choice conditional on a test with real store data.
+3. **Prompts:** generated with a skill of my own, a prompt engineering pipeline with scoring across 12 dimensions. I reviewed each version of the main prompt and made some fine adjustments.
+4. **Implementation:** the assistant wrote most of the code and tests, with my review and validation happening at each stage.
+5. **Verification:** the most valuable part was reading the agent's real answers, beyond the metrics. The errors in the table under [Quality](#quality) were only found that way.
 
-Toda a responsabilidade pelas decisões e pelo resultado é minha.
+All responsibility for the decisions and the result is mine.
 
-## Estrutura
+## Structure
 
 ```
-data/              CSVs da loja e manual de políticas
-src/app/           código: ingest, retrieval, domain, tools, agent, interfaces
-src/prompts/       módulos XML do prompt da Lira
-src/tests/         testes sem rede
-src/evals/         casos, avaliação com o modelo real e benchmarks
-src/examples/      conversas reais capturadas do agente
+data/              store CSVs and policy manual
+src/app/           code: ingest, retrieval, domain, tools, agent, interfaces
+src/prompts/       XML modules of Lira's prompt
+src/tests/         tests with no network
+src/evals/         cases, evaluation with the real model and benchmarks
+src/examples/      real conversations captured from the agent
 ```
