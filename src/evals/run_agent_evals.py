@@ -33,6 +33,7 @@ from app.tools.registry import build_tools
 
 RESULTS_DIR = Path(__file__).parent / "results"
 PAUSE_BETWEEN_TURNS_SECONDS = 4.0
+MAX_PROVIDER_ERRORS_IN_A_ROW = 3
 
 
 def _normalized(text: str) -> str:
@@ -164,13 +165,23 @@ def main() -> int:
         tools = build_tools(context)
 
         results = []
+        provider_errors_in_a_row = 0
         for run in range(1, args.repeat + 1):
             for case in selected:
                 result = known.get((case.id, run)) or _run_case(case, run, args.model, tools)
-                results.append(result)
                 mark = "ok   " if result["passed"] else "FALHA"
                 print(f"{mark} [{run}] {case.id} {result['failures'] or ''}", flush=True)
-                if not args.case:
+
+                provider_errors_in_a_row = (
+                    provider_errors_in_a_row + 1 if result["provider_error"] else 0
+                )
+                if provider_errors_in_a_row >= MAX_PROVIDER_ERRORS_IN_A_ROW:
+                    # Usually the daily quota: more calls would only record meaningless failures.
+                    print("Provedor indisponível. Execute de novo mais tarde para continuar.")
+                    return 2
+
+                results.append(result)
+                if not args.case and not result["provider_error"]:
                     summary = _summary(results)
                     report = {"model": args.model, "summary": summary, "results": results}
                     output.write_text(
