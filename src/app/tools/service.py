@@ -121,7 +121,8 @@ def build_service_tools(context: ToolContext) -> list[BaseTool]:
         """Busca no manual da loja: endereço, horários, pagamento, trocas, devoluções, frete,
         garantia, promoções, privacidade e o que a loja vende.
 
-        Use em toda dúvida sobre regras e informações da loja; nunca responda de memória.
+        Use em toda dúvida sobre regras e informações da loja, inclusive o que ela faz ou deixa
+        de fazer, como reservas ou encomendas; nunca responda de memória.
         """
         return to_json(search_policies(context, pergunta))
 
