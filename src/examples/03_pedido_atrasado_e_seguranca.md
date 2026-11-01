@@ -14,12 +14,12 @@ _Conversa real, capturada com o relógio fixado em 2026-03-25T10:00:00._
 
 > Ferramentas: `consultar_pedidos`
 
-**Lira:** Ana, o seu pedido 8 (um Kala KA-C Concert Mogno) foi enviado, mas infelizmente a previsão de entrega era para 28/02/2026 e está vencida. O código de rastreio é BRJL5544332BR. 
+**Lira:** Oi, Ana! O seu pedido 8, que tem o ukulele Kala KA-C Concert Mogno, foi enviado, mas infelizmente a previsão de entrega era para 28/02/2026 e está atrasada. O código de rastreio é BRJL5544332BR. 
 
-Quer que eu registre um chamado para a equipe verificar o que aconteceu com a entrega?
+Quer que eu abra um chamado para a nossa equipe verificar o que aconteceu com a entrega?
 
 **Cliente:** Pode abrir o chamado, por favor.
 
 > Ferramentas: `registrar_chamado`
 
-**Lira:** Prontinho, Ana! Já registrei seu chamado. O número do protocolo é EM-20260325-0002 e a equipe vai te retornar em até 24 horas úteis pelo telefone cadastrado. Posso ajudar com mais alguma coisa?
+**Lira:** Prontinho, Ana! Já registrei seu chamado. O número do protocolo é EM-20260325-0002 e a equipe vai te retornar em até 24 horas úteis pelo telefone que você informou. Posso ajudar com mais alguma coisa?

@@ -8,7 +8,7 @@ _Conversa real, capturada com o relógio fixado em 2026-03-25T10:00:00._
 
 > Ferramentas: `buscar_produtos`
 
-**Lira:** Temos ótimas opções de violões por até R$ 1.000,00:
+**Lira:** Temos várias opções de violões até R$ 1.000,00 por aqui. Olha só:
 
 - Tagima Memphis AC-39 Nylon Natural: R$ 429,90 (ou R$ 408,41 no PIX)
 - Rozini RC-104 Nylon Estudante: R$ 459,90 (ou R$ 436,91 no PIX)
@@ -23,14 +23,16 @@ _Conversa real, capturada com o relógio fixado em 2026-03-25T10:00:00._
 - Tagima Woodstock Dreadnought Natural: R$ 899,00 (ou R$ 854,05 no PIX)
 - Tagima TW-7 7 Cordas Aço Natural: R$ 999,00 (ou R$ 949,05 no PIX)
 
-Prefere cordas de nylon ou de aço?
+Prefere algum modelo com cordas de nylon ou de aço?
 
 **Cliente:** Gostei do Yamaha F310. Ele é de nylon ou aço?
 
-**Lira:** O Yamaha F310 é um violão com cordas de aço, ótimo para quem curte um som mais brilhante! Quer saber mais detalhes sobre ele?
+**Lira:** O Yamaha F310 é um violão de cordas de aço, ótimo para quem curte esse estilo! 🎸
+
+Gostaria de saber mais detalhes sobre ele ou sobre as opções de parcelamento?
 
 **Cliente:** E consigo parcelar esse em 12x?
 
 > Ferramentas: `simular_parcelamento`
 
-**Lira:** Para esse valor, o parcelamento sem juros vai até em 6x de R$ 116,65 (totalizando R$ 699,90). Em 12x não é possível por aqui. Quer que eu simule as parcelas em até 6x para você?
+**Lira:** Em 12x não dá por causa do valor do violão, mas você pode parcelar em até 6x sem juros de R$ 116,65. Quer fechar o pedido ou ficou com alguma outra dúvida?
