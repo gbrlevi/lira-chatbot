@@ -157,6 +157,7 @@ def test_late_shipment_gets_the_days_ready(context: ToolContext, frozen_today) -
     order = _lookup(context, telefone=ANA_PHONE, numero_pedido=8)["pedidos"][0]
     assert order["situacao_do_prazo"] == "Previsão de entrega vencida há 25 dias."
     assert "chamado" in order["sugestao"]
+    assert "código de rastreio" in order["sugestao"]
 
 
 def test_delivered_order_states_the_withdrawal_window_and_its_caveat(
@@ -168,6 +169,8 @@ def test_delivered_order_states_the_withdrawal_window_and_its_caveat(
     )
     assert "provavelmente já venceu" in order["orientacao_se_o_cliente_quiser_devolver"]
     assert "data real" in order["ressalva"]
+    # The model once presented the estimated date as the day the order arrived.
+    assert order["ressalva"].startswith(f"{order['previsao_de_entrega']} é a previsão")
 
 
 def test_recent_delivery_is_reported_as_inside_the_window(

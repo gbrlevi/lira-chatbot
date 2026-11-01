@@ -247,6 +247,12 @@ def search_products(
     result: dict = {"total_encontrado": total, "produtos": products}
     if total > len(shown):
         result["observacao"] = f"Mostrando {len(shown)} de {total}. Refine a busca se precisar."
+    if caracteristica and categoria and total:
+        # With a category, similarity only orders, so the total does not count matches.
+        result["sobre_o_total"] = (
+            f"{total} é o total da categoria com esses filtros, não de modelos indicados para "
+            f"'{caracteristica}'. Não diga que todos servem para esse uso."
+        )
     if approximate and products:
         result["observacao"] = (
             "Nenhum modelo com esse nome exato. Estes têm nome parecido: confirme com o "

@@ -52,7 +52,12 @@ def _delivery_status(order: sqlite3.Row, today: date) -> dict:
     if order["status"] == "shipped" and days_since > 0:
         return {
             "situacao_do_prazo": f"Previsão de entrega vencida há {days_since} dias.",
-            "sugestao": "Ofereça abrir um chamado para a equipe verificar a entrega.",
+            "sugestao": (
+                "Informe o código de rastreio e ofereça abrir um chamado para a equipe "
+                "verificar a entrega."
+                if order["tracking_code"]
+                else "Ofereça abrir um chamado para a equipe verificar a entrega."
+            ),
         }
     if order["status"] == "delivered":
         within_window = days_since <= WITHDRAWAL_DAYS
@@ -68,7 +73,8 @@ def _delivery_status(order: sqlite3.Row, today: date) -> dict:
                 "provavelmente já venceu, e ofereça abrir um chamado para a equipe avaliar."
             ),
             "ressalva": (
-                "O sistema não registra a data real de recebimento, só a previsão. "
+                f"{_format_date(estimated)} é a previsão, não a data em que o pedido chegou: "
+                "o sistema não registra a data real de recebimento. "
                 "Deixe isso claro e, se houver dúvida, abra um chamado."
             ),
         }
@@ -169,6 +175,8 @@ def build_order_tools(context: ToolContext) -> list[BaseTool]:
 
         Só chame depois que o cliente tiver informado o telefone E também o número do pedido
         ou o e-mail. Se faltar algum dado, peça ao cliente em vez de chamar a ferramenta.
+        Com os dados informados, consulte antes de responder sobre o pedido, inclusive em
+        dúvidas de devolução ou troca, porque o prazo depende dele.
         """
         return to_json(
             lookup_orders(

@@ -192,6 +192,8 @@ def test_characteristic_with_category_only_orders_the_category(context: ToolCont
     result = search_products(context, categoria="Ukuleles", caracteristica="viagem", limite=30)
     assert result["total_encontrado"] == 14
     assert all(product["categoria"] == "Ukuleles" for product in result["produtos"])
+    # The model once read a category total as "33 options for beginners".
+    assert "não de modelos indicados" in result["sobre_o_total"]
 
 
 def test_characteristic_without_category_requires_the_words(context: ToolContext) -> None:
