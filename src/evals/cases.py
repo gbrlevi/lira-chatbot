@@ -255,6 +255,13 @@ CASES: tuple[Case, ...] = (
         must_not_contain=("manual",),
     ),
     _case(
+        "policy_reservation_rule_not_invented",
+        "politicas",
+        "Consegue reservar um Yamaha C40 pra mim até sábado?",
+        required_tools=[POLICIES],
+        must_not_contain=("não trabalha", "reservei", "reservado"),
+    ),
+    _case(
         "policy_defect_exchange_window",
         "politicas",
         "Meu instrumento veio com defeito de fábrica, qual o prazo para trocar?",
