@@ -96,6 +96,7 @@ def _run_case(case: Case, run_number: int, model: str, tools: list) -> dict:
         "answer": answer,
         "tool_calls": [{"name": call["name"], "args": call["args"]} for call in calls],
         "seconds": round(max(elapsed, 0.0), 2),
+        "model_calls": len(usages),
         "input_tokens": sum(usage.get("input_tokens", 0) for usage in usages),
         "output_tokens": sum(usage.get("output_tokens", 0) for usage in usages),
     }
@@ -121,6 +122,7 @@ def _summary(results: list[dict]) -> dict:
         "total": len(results),
         "provider_errors": len(results) - len(answered),
         "by_category": by_category,
+        "model_calls": sum(result["model_calls"] for result in answered),
         "median_seconds_per_case": (
             statistics.median(result["seconds"] for result in answered) if answered else None
         ),
