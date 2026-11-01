@@ -98,6 +98,8 @@ def _present(row: sqlite3.Row, *, details: bool = False) -> dict:
             product["desconto"] = f"{price.discount_percent}%"
             product["preco_promocional"] = format_brl(price.final_cents)
             product["campanha"] = price.promotion_name
+            # Without this, the model copies the PIX format of earlier products and does the math.
+            product["desconto_no_pix"] = "não se aplica: promoção e PIX não se somam"
         else:
             product["preco"] = format_brl(price.final_cents)
             product["preco_no_pix"] = format_brl(price.pix_cents)

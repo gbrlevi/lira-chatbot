@@ -67,6 +67,7 @@ def test_active_promotion_shows_original_and_percent_without_pix(context: ToolCo
     assert product["preco_promocional"] == "R$ 439,20"
     assert product["campanha"] == "Desconto Exclusivo"
     assert "preco_no_pix" not in product
+    assert product["desconto_no_pix"].startswith("não se aplica")
 
 
 def test_exact_match_does_not_bring_similar_models(context: ToolContext) -> None:
